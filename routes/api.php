@@ -45,3 +45,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Token redemption: the invitee must be authenticated.
     Route::post('/invitations/accept', [InvitationController::class, 'accept']);
 });
+
+// Per-domain slice routes, appended here to keep the main file readable.
+require __DIR__.'/slices/documents.php';
+require __DIR__.'/slices/checklists.php';
+require __DIR__.'/slices/incidents.php';
+require __DIR__.'/slices/support.php';
+require __DIR__.'/slices/monitor.php';
