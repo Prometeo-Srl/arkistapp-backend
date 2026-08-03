@@ -1,0 +1,896 @@
+<title>Prometeo — Modello ER</title>
+
+<style>
+  :root {
+    --ground: #eef1f2;
+    --panel: #ffffff;
+    --ink: #12181d;
+    --muted: #5d6b70;
+    --rule: #c9d2d4;
+    --accent: #0f5d64;
+    --accent-soft: #d8e6e6;
+    --signal: #96620a;
+    --signal-soft: #f0e4cb;
+
+    --serif: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.375rem;
+    --step-3: 1.875rem;
+    --step-4: 2.5rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0e1417;
+      --panel: #161e22;
+      --ink: #e4eaec;
+      --muted: #94a5aa;
+      --rule: #2b383d;
+      --accent: #4fb3ba;
+      --accent-soft: #173235;
+      --signal: #d9a441;
+      --signal-soft: #33290f;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0e1417;
+    --panel: #161e22;
+    --ink: #e4eaec;
+    --muted: #94a5aa;
+    --rule: #2b383d;
+    --accent: #4fb3ba;
+    --accent-soft: #173235;
+    --signal: #d9a441;
+    --signal-soft: #33290f;
+  }
+
+  :root[data-theme="light"] {
+    --ground: #eef1f2;
+    --panel: #ffffff;
+    --ink: #12181d;
+    --muted: #5d6b70;
+    --rule: #c9d2d4;
+    --accent: #0f5d64;
+    --accent-soft: #d8e6e6;
+    --signal: #96620a;
+    --signal-soft: #f0e4cb;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 3vw, 2rem) 5rem;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding-bottom: 1.75rem;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: var(--step-4);
+    line-height: 1.1;
+    font-weight: 600;
+    text-wrap: balance;
+    letter-spacing: -0.015em;
+  }
+
+  .standfirst {
+    max-width: 64ch;
+    font-size: var(--step-1);
+    color: var(--muted);
+  }
+
+  .counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .count {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--panel);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .count b {
+    font-size: 0.9375rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- layout ---------- */
+
+  .cols {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    margin-top: 2.5rem;
+  }
+
+  @media (min-width: 60rem) {
+    .cols { grid-template-columns: 13rem 1fr; gap: 3rem; }
+    nav.index { position: sticky; top: 1.5rem; align-self: start; }
+  }
+
+  nav.index ol {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    border-left: 1px solid var(--rule);
+  }
+
+  nav.index a {
+    display: block;
+    padding: 0.3rem 0 0.3rem 0.75rem;
+    margin-left: -1px;
+    border-left: 2px solid transparent;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  nav.index a:hover,
+  nav.index a:focus-visible {
+    color: var(--ink);
+    border-left-color: var(--accent);
+  }
+
+  nav.index .n {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--accent);
+    display: block;
+    letter-spacing: 0.08em;
+  }
+
+  main { display: flex; flex-direction: column; gap: 3.5rem; min-width: 0; }
+
+  section { display: flex; flex-direction: column; gap: 1rem; scroll-margin-top: 1.5rem; }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: var(--step-3);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 0.5rem;
+  }
+
+  p { max-width: 68ch; }
+
+  a { color: var(--accent); }
+
+  code, .m {
+    font-family: var(--mono);
+    font-size: 0.8125em;
+    background: var(--accent-soft);
+    padding: 0.1em 0.35em;
+    border-radius: 2px;
+    word-break: break-word;
+  }
+
+  /* ---------- diagram panels ---------- */
+
+  .figure {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .figure > pre.mermaid {
+    overflow-x: auto;
+    padding: 1.25rem;
+    margin: 0;
+    background: var(--panel);
+  }
+
+  .figure figcaption {
+    padding: 0.6rem 1rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* ---------- tables ---------- */
+
+  .scroller { overflow-x: auto; border: 1px solid var(--rule); border-radius: 2px; background: var(--panel); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
+
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.85rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    background: var(--ground);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.key { font-family: var(--mono); font-size: 0.8125rem; white-space: nowrap; }
+
+  /* ---------- notes ---------- */
+
+  .note {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.85rem 1rem;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+  }
+
+  .note.warn { border-left-color: var(--signal); background: var(--signal-soft); }
+
+  .note .label {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .note p { max-width: 72ch; margin: 0; }
+
+  ul.plain { display: flex; flex-direction: column; gap: 0.5rem; padding-left: 1.1rem; }
+
+  ul.plain li { max-width: 68ch; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="eyebrow">Piattaforma Prometeo · schema dati</span>
+    <h1>Modello ER</h1>
+    <p class="standfirst">
+      Sette domini, trentatré entità. Deriva dal capitolato tecnico, dai due prototipi XD
+      (317 schermate azienda, 110 lavoratore) e dalle note sulla struttura dei ruoli.
+      Un diagramma per dominio: un unico grafo da trentatré entità non si legge.
+    </p>
+    <div class="counts">
+      <span class="count"><b>33</b> entità</span>
+      <span class="count"><b>8</b> migrazioni</span>
+      <span class="count"><b>32</b> model</span>
+      <span class="count"><b>16</b> enum</span>
+      <span class="count">Postgres 18 · Laravel 13</span>
+    </div>
+  </header>
+
+  <div class="cols">
+
+    <nav class="index" aria-label="Indice dei domini">
+      <ol>
+        <li><a href="#mappa"><span class="n">Orientamento</span>Mappa dei domini</a></li>
+        <li><a href="#tenancy"><span class="n">Dominio</span>Tenancy e identità</a></li>
+        <li><a href="#ruoli"><span class="n">Dominio</span>Ruoli e abbonamenti</a></li>
+        <li><a href="#archivio"><span class="n">Dominio</span>Archivio documentale</a></li>
+        <li><a href="#accessi"><span class="n">Dominio</span>Condivisione e presa visione</a></li>
+        <li><a href="#checklist"><span class="n">Dominio</span>Checklist</a></li>
+        <li><a href="#infortuni"><span class="n">Dominio</span>Infortuni e segnalazioni</a></li>
+        <li><a href="#attivita"><span class="n">Dominio</span>Attività, notifiche, audit</a></li>
+        <li><a href="#assistenza"><span class="n">Dominio</span>Assistenza</a></li>
+        <li><a href="#aperti"><span class="n">Da decidere</span>Punti aperti</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <section id="mappa">
+        <h2>Mappa dei domini</h2>
+        <p>
+          Ogni dominio pende da <code>companies</code>: è la radice del tenant e il perno
+          dell'isolamento dei dati. <code>users</code> la attraversa da fuori, perché una
+          persona può stare in più tenant contemporaneamente.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+flowchart LR
+    U["users<br/>persone"]
+    C(["companies<br/>radice del tenant"])
+    S["Ruoli e<br/>abbonamenti"]
+    D["Archivio<br/>documentale"]
+    K["Checklist"]
+    I["Infortuni e<br/>segnalazioni"]
+    A["Attività,<br/>notifiche, audit"]
+    H["Assistenza"]
+
+    U -->|company_memberships| C
+    C --> S
+    C --> D
+    C --> K
+    C --> I
+    C --> A
+    C --> H
+    U -.->|assegnatario, autore, destinatario| A
+</pre>
+          <figcaption>Linee continue: appartenenza al tenant. Tratteggiata: riferimenti alla persona.</figcaption>
+        </figure>
+        <div class="note">
+          <span class="label">Convenzione dei diagrammi</span>
+          <p>
+            <code>||--o{</code> uno a molti · <code>}o--o|</code> zero-o-uno facoltativo ·
+            <code>||--o|</code> uno a zero-o-uno. I nomi sono quelli delle tabelle, non dei model.
+          </p>
+        </div>
+      </section>
+
+      <section id="tenancy">
+        <h2>Tenancy e identità</h2>
+        <p>
+          Una sola tabella <code>users</code> per tutti: Super Admin, titolari d'azienda e
+          lavoratori. Il ruolo non è una proprietà della persona ma della sua
+          <em>relazione</em> con un tenant, e vive su <code>company_memberships</code>.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ COMPANY_MEMBERSHIPS : ha
+    USERS ||--o{ COMPANY_MEMBERSHIPS : appartiene
+    COMPANY_MEMBERSHIPS ||--o{ MEMBERSHIP_ROLES : ricopre
+    ORG_ROLES ||--o{ MEMBERSHIP_ROLES : tipizza
+    COMPANIES ||--o{ INVITATIONS : invia
+    INVITATIONS }o--o| ORG_ROLES : propone
+    INVITATIONS }o--o| USERS : accettato_da
+    COMPANIES }o--o| USERS : registrata_da
+    COMPANIES ||--o| BRANDING_SETTINGS : personalizza
+    COMPANIES ||--o{ IMPORT_BATCHES : importa
+
+    COMPANIES {
+        string kind "business | personal"
+        bigint owner_user_id "chi ha registrato"
+        string status
+    }
+    COMPANY_MEMBERSHIPS {
+        string status "invited | active | archived"
+        boolean is_admin "permesso applicativo"
+        string department
+    }
+    ORG_ROLES {
+        string code "D.Lgs 81/08"
+        boolean is_unique_per_company
+    }
+    INVITATIONS {
+        string email
+        string token
+        timestamp accepted_at
+    }
+</pre>
+          <figcaption>Il workspace personale è una riga companies con kind = personal.</figcaption>
+        </figure>
+
+        <h3>Due assi di permesso, tenuti separati</h3>
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr><th>Asse</th><th>Dove vive</th><th>Cosa decide</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="key">org_roles</td>
+                <td class="key">membership_roles</td>
+                <td>Ruoli di sicurezza ex D.Lgs 81/08: datore di lavoro, RSPP, ASPP, medico competente, RLS, dirigente, preposto, lavoratore. Nove voci, seed statico, con date di nomina e revoca.</td>
+              </tr>
+              <tr>
+                <td class="key">is_admin</td>
+                <td class="key">company_memberships</td>
+                <td>Permesso applicativo: invita, associa, gestisce i permessi dei collaboratori. Chi registra l'azienda è amministratore anche se non è il datore di lavoro.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">
+          <span class="label">Perché non un unico campo ruolo</span>
+          <p>
+            Sono insiemi che cambiano per ragioni diverse. I ruoli di sicurezza li dettano
+            le nomine aziendali e la norma; l'amministrazione dell'account la decide chi paga.
+            Un preposto non è per questo un amministratore, e un amministratore può non avere
+            alcun ruolo nell'organigramma.
+          </p>
+        </div>
+      </section>
+
+      <section id="ruoli">
+        <h2>Ruoli e abbonamenti</h2>
+        <p>
+          Quattro ruoli previsti dalle note. Il nodo è il lavoratore non associato: si registra
+          da solo, paga un piano personale, e se poi entra in un'azienda già abbonata non deve
+          pagare più nulla.
+        </p>
+
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr><th>Ruolo</th><th>Come è modellato</th><th>Chi copre l'accesso</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Super Admin</td>
+                <td class="key">users.type = prometeo_operator</td>
+                <td>Nessun abbonamento: bypassa il tenant scope</td>
+              </tr>
+              <tr>
+                <td>Azienda</td>
+                <td class="key">companies.kind = business<br>+ membership is_admin</td>
+                <td>Abbonamento del proprio workspace</td>
+              </tr>
+              <tr>
+                <td>Lavoratore associato</td>
+                <td class="key">membership active<br>su workspace business</td>
+                <td>Abbonamento dell'azienda</td>
+              </tr>
+              <tr>
+                <td>Lavoratore non associato</td>
+                <td class="key">companies.kind = personal<br>owner_user_id = lui</td>
+                <td>Abbonamento del workspace personale</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    PLANS ||--o{ SUBSCRIPTIONS : istanzia
+    COMPANIES ||--o{ SUBSCRIPTIONS : sottoscrive
+    SUBSCRIPTIONS ||--o{ PAYMENTS : fattura
+    SUBSCRIPTIONS }o--o| SUBSCRIPTIONS : assorbito_da
+
+    PLANS {
+        string code "free | premium_monthly | premium_yearly"
+        integer price_cents
+        json features
+    }
+    SUBSCRIPTIONS {
+        string status "trialing active past_due canceled superseded"
+        bigint superseded_by_id "chi lo copre"
+        timestamp current_period_end
+    }
+</pre>
+          <figcaption>L'abbonamento pende sempre da un workspace, aziendale o personale.</figcaption>
+        </figure>
+
+        <h3>Subentro dell'abbonamento aziendale</h3>
+        <figure class="figure">
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> Nessuno: lavoratore si registra da solo
+    Nessuno --> Personale: sottoscrive piano individuale
+    Personale --> Assorbito: associato ad azienda con abbonamento attivo
+    Nessuno --> CopertoAzienda: invitato da azienda abbonata
+    Assorbito --> [*]
+    CopertoAzienda --> [*]
+
+    Personale: Personale attivo
+    Assorbito: Personale superseded
+    CopertoAzienda: Coperto dall azienda
+</pre>
+          <figcaption>Transizione applicata da CompanyMembershipObserver, non dal controller.</figcaption>
+        </figure>
+
+        <div class="note">
+          <span class="label">Regola di copertura, una query sola</span>
+          <p>
+            Esiste almeno un workspace attivo dell'utente — personale o aziendale — con un
+            abbonamento in stato <code>trialing</code>, <code>active</code> o <code>past_due</code>.
+            Nessuna gerarchia di casi da tenere allineata a mano.
+          </p>
+        </div>
+
+        <div class="note warn">
+          <span class="label">Deliberatamente non implementato</span>
+          <p>
+            La riattivazione del piano individuale quando il lavoratore esce dall'azienda.
+            Le note non la richiedono e tocca un pagamento: la decisione è del cliente.
+            Il dato per farla c'è già — <code>superseded_by_id</code> registra quale
+            abbonamento aveva assorbito quale.
+          </p>
+        </div>
+      </section>
+
+      <section id="archivio">
+        <h2>Archivio documentale</h2>
+        <p>
+          Tre livelli come nei prototipi: categoria, cartella, file. Le cartelle si annidano.
+          Ogni file conserva le versioni successive, e la scadenza non si digita: la calcola
+          il tipo di documento.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ CATEGORIES : possiede
+    CATEGORIES ||--o{ FOLDERS : contiene
+    FOLDERS ||--o{ FOLDERS : annida
+    FOLDERS ||--o{ FILES : contiene
+    FILES ||--o{ FILE_VERSIONS : versiona
+    DOCUMENT_TYPES ||--o{ FILES : classifica
+    FOLDERS }o--o| USERS : cartella_personale_di
+    FILES }o--o| FILE_VERSIONS : versione_corrente
+
+    DOCUMENT_TYPES {
+        string code "attestato_antincendio"
+        smallint validity_months "60"
+        json reminder_offsets "180 60 15 giorni"
+    }
+    FILES {
+        string media_kind "document image audio video"
+        date issued_at
+        date expires_at "derivata"
+        boolean requires_acknowledgement
+    }
+    FILE_VERSIONS {
+        integer version_no
+        string checksum
+        string replaced_reason
+    }
+</pre>
+          <figcaption>La cronologia del prototipo è file_versions; unique su (file_id, version_no).</figcaption>
+        </figure>
+        <div class="note">
+          <span class="label">Scadenze dinamiche</span>
+          <p>
+            <code>expires_at = issued_at + document_types.validity_months</code>, ricalcolata a
+            ogni salvataggio del file — così vale anche per l'import massivo di attestati, non
+            solo per l'upload manuale. Una scadenza impostata a mano non viene sovrascritta.
+            Antincendio 60 mesi, primo soccorso 36, aggiornamento preposto 24, visita medica 12.
+          </p>
+        </div>
+      </section>
+
+      <section id="accessi">
+        <h2>Condivisione e presa visione</h2>
+        <p>
+          Una sola tabella regge tutta la condivisione dei prototipi: cosa si condivide è
+          polimorfo (categoria, cartella o file), e il destinatario può essere una persona
+          oppure un ruolo dell'organigramma — «condividi con tutti i preposti» senza tabelle
+          di gruppo.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    CATEGORIES ||--o{ ACCESS_GRANTS : ambito
+    FOLDERS ||--o{ ACCESS_GRANTS : ambito
+    FILES ||--o{ ACCESS_GRANTS : ambito
+    ACCESS_GRANTS }o--|| USERS : verso_persona
+    ACCESS_GRANTS }o--|| ORG_ROLES : verso_ruolo
+    FILES ||--o{ ACKNOWLEDGEMENTS : richiede
+    FILE_VERSIONS ||--o{ ACKNOWLEDGEMENTS : riferita_a
+    USERS ||--o{ ACKNOWLEDGEMENTS : conferma
+
+    ACCESS_GRANTS {
+        string grantable_type "category folder file"
+        string grantee_type "user | org_role"
+        string permission "viewer custodian editor"
+        timestamp expires_at
+    }
+    ACKNOWLEDGEMENTS {
+        timestamp viewed_at
+        timestamp confirmed_at
+        string ip_address
+    }
+</pre>
+          <figcaption>grantable_type usa alias stabili (file), non nomi di classe PHP.</figcaption>
+        </figure>
+
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr><th>Permesso</th><th>Legge e scarica</th><th>Gestisce scadenze e versioni</th><th>Scrive ed elimina</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="key">viewer</td><td>sì</td><td>no</td><td>no</td></tr>
+              <tr><td class="key">custodian</td><td>sì</td><td>sì</td><td>no</td></tr>
+              <tr><td class="key">editor</td><td>sì</td><td>sì</td><td>sì</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note">
+          <span class="label">Presa visione legata alla versione</span>
+          <p>
+            Il vincolo unico è su <code>(file_version_id, user_id)</code>, non su
+            <code>(file_id, user_id)</code>: una nuova versione del documento richiede una
+            nuova conferma. È il punto in cui la tracciabilità richiesta dal capitolato
+            regge davvero un controllo esterno.
+          </p>
+        </div>
+      </section>
+
+      <section id="checklist">
+        <h2>Checklist</h2>
+        <p>
+          Il prototipo azienda dedica oltre quaranta schermate al costruttore di checklist:
+          sezioni, domande di sette tipi, opzioni con immagine, riordino drag &amp; drop.
+          Struttura e compilazioni stanno su rami separati.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ CHECKLISTS : possiede
+    CHECKLISTS ||--o{ CHECKLIST_SECTIONS : ha
+    CHECKLIST_SECTIONS ||--o{ CHECKLIST_QUESTIONS : ha
+    CHECKLIST_QUESTIONS ||--o{ CHECKLIST_OPTIONS : offre
+    CHECKLISTS ||--o{ CHECKLIST_ASSIGNMENTS : assegnata
+    CHECKLIST_ASSIGNMENTS ||--o| CHECKLIST_SUBMISSIONS : produce
+    CHECKLIST_SUBMISSIONS ||--o{ CHECKLIST_ANSWERS : contiene
+    CHECKLIST_QUESTIONS ||--o{ CHECKLIST_ANSWERS : risposta_a
+
+    CHECKLISTS {
+        string status "draft published archived"
+        string frequency "weekly monthly semiannual annual"
+    }
+    CHECKLIST_QUESTIONS {
+        string type "single_choice multi_choice text date time image number"
+        boolean is_required
+        smallint position
+    }
+    CHECKLIST_OPTIONS {
+        string image_path
+        boolean is_non_conformity
+    }
+    CHECKLIST_ASSIGNMENTS {
+        string assignee_type "user | org_role"
+        string status "pending in_progress completed expired"
+    }
+</pre>
+          <figcaption>Il drag &amp; drop riscrive (checklist_section_id, position).</figcaption>
+        </figure>
+        <p>
+          <code>is_non_conformity</code> sull'opzione è il gancio che serve dopo: da lì
+          nasce la rilevazione automatica di una non conformità in fase di compilazione,
+          senza rileggere il testo della risposta.
+        </p>
+      </section>
+
+      <section id="infortuni">
+        <h2>Infortuni e segnalazioni</h2>
+        <p>
+          Un'unica entità per near miss e infortuni: gli stessi campi, la stessa revisione,
+          liste diverse in interfaccia. La soglia dei quaranta giorni dei prototipi non è un
+          filtro di comodo, è la separazione che il registro richiede.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ INCIDENT_REPORTS : registra
+    USERS }o--o| INCIDENT_REPORTS : segnalato_da
+    INCIDENT_REPORTS ||--o{ INCIDENT_ATTACHMENTS : documenta
+
+    INCIDENT_REPORTS {
+        string kind "near_miss | injury"
+        boolean is_anonymous
+        bigint reported_by_id "NULL se anonima"
+        smallint absence_days
+        string severity_bucket "derivato dalla soglia 40 gg"
+        string status "draft submitted under_review closed"
+    }
+</pre>
+          <figcaption>severity_bucket e anonimato sono derivati al salvataggio, non in input.</figcaption>
+        </figure>
+        <div class="note warn">
+          <span class="label">Anonimato applicato nel model</span>
+          <p>
+            Con <code>is_anonymous</code> il campo <code>reported_by_id</code> viene azzerato
+            prima della scrittura, non nascosto in lettura. Il capitolato promette al
+            lavoratore una segnalazione anonima: se l'identità finisse a database, la promessa
+            dipenderebbe da ogni futura query che dimentica di escludere quella colonna.
+          </p>
+        </div>
+      </section>
+
+      <section id="attivita">
+        <h2>Attività, notifiche, audit</h2>
+        <p>
+          «Monitora attività» è la schermata che entrambi i prototipi filtrano e paginano.
+          È una tabella materializzata, non una vista: i dati sarebbero derivabili, ma
+          l'ordinamento e i filtri su tre sorgenti diverse non si pagano a ogni apertura.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ ACTIVITIES : traccia
+    USERS ||--o{ ACTIVITIES : assegnata_a
+    USERS ||--o{ NOTIFICATIONS : riceve
+    USERS ||--o{ AUDIT_LOGS : esegue
+
+    ACTIVITIES {
+        string kind "read_document fill_checklist renew_certificate"
+        string subject_type "file checklist_assignment incident_report"
+        string status "todo done overdue"
+        timestamp due_at
+    }
+    NOTIFICATIONS {
+        uuid id
+        string channel "push email in_app"
+        json data
+        timestamp read_at
+    }
+    AUDIT_LOGS {
+        string action
+        string auditable_type
+        json changes
+        string ip_address
+    }
+</pre>
+          <figcaption>notifications riusa lo schema DatabaseNotification di Laravel.</figcaption>
+        </figure>
+        <ul class="plain">
+          <li>
+            <b>Tre sorgenti, una lista:</b> presa visione mancante, checklist assegnata,
+            attestato in scadenza. Il campo <code>subject_type</code> dice quale.
+          </li>
+          <li>
+            <b>Notifiche:</b> schema allineato a <code>DatabaseNotification</code>, così il
+            canale <code>database</code> di Laravel funziona senza layer custom, più le colonne
+            di dominio (tenant, canale, oggetto).
+          </li>
+          <li>
+            <b>Audit:</b> il capitolato chiede che ogni caricamento, modifica e accesso sia
+            tracciato. <code>changes</code> conserva il delta, non solo il fatto.
+          </li>
+        </ul>
+      </section>
+
+      <section id="assistenza">
+        <h2>Assistenza</h2>
+        <p>
+          Chat, email e chiamata sono lo stesso thread con canali diversi. La chiamata lascia
+          solo il metadato: il prototipo apre il dialer di sistema, la telefonia non passa
+          dalla piattaforma.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ SUPPORT_THREADS : apre
+    USERS ||--o{ SUPPORT_THREADS : partecipa
+    SUPPORT_THREADS ||--o{ SUPPORT_MESSAGES : contiene
+    SUPPORT_MESSAGES ||--o{ SUPPORT_ATTACHMENTS : allega
+    PROMETEO_CONTACTS }o--o| USERS : profilo_di
+
+    SUPPORT_THREADS {
+        string channel "chat | email | call"
+        bigint assigned_operator_id
+        string status "open pending closed"
+    }
+    SUPPORT_MESSAGES {
+        string kind "text image video audio file call_log"
+        integer call_duration_seconds
+        timestamp read_at
+    }
+    PROMETEO_CONTACTS {
+        string display_name
+        string role_label
+        boolean is_visible
+    }
+</pre>
+          <figcaption>prometeo_contacts è globale: la rubrica dello staff non appartiene a un tenant.</figcaption>
+        </figure>
+      </section>
+
+      <section id="aperti">
+        <h2>Punti aperti</h2>
+        <p>
+          Quattro decisioni che restano al cliente. Nessuna richiede modifiche allo schema:
+          sono scelte di prodotto, e il modello regge entrambe le risposte.
+        </p>
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr><th>Questione</th><th>Il conflitto</th><th>Cosa cambia</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Permessi del lavoratore</td>
+                <td>Il capitolato lo dà in sola lettura; il prototipo lavoratore ha creazione cartelle e upload file</td>
+                <td>Solo la policy. Un grant <code>editor</code> sulla cartella personale copre il caso</td>
+              </tr>
+              <tr>
+                <td>Riattivazione del piano individuale</td>
+                <td>Il lavoratore esce dall'azienda: il suo piano personale torna attivo o va risottoscritto?</td>
+                <td>Un job. Il dato è già in <code>superseded_by_id</code></td>
+              </tr>
+              <tr>
+                <td>Firma della presa visione</td>
+                <td>I prototipi mostrano solo una conferma a tap</td>
+                <td><code>signature_path</code> resta nullable</td>
+              </tr>
+              <tr>
+                <td>Multi-azienda per utente</td>
+                <td>«Cambio profilo» implica un consulente esterno su più aziende</td>
+                <td>Già modellato, da confermare come requisito</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note warn">
+          <span class="label">Contraddizione interna al capitolato</span>
+          <p>
+            Lo stesso documento scrive che «i clienti avranno accesso in lettura e scrittura ai
+            propri documenti» e, poche righe sotto, che il cliente «non avrà alcuna possibilità
+            di modifica dei contenuti». I prototipi sono più recenti e mostrano scrittura piena:
+            probabile che valgano loro, ma va messo per iscritto.
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <span>Riferimento completo dei campi: <code>docs/ER-model.md</code> nel repository.</span>
+        <span>Fonti: capitolato tecnico Prometeo (Allegato 1), prototipi XD azienda e lavoratore, note sulla struttura dei ruoli.</span>
+      </footer>
+
+    </main>
+  </div>
+</div>
