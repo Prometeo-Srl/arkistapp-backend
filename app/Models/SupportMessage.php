@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\SupportMessageKind;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class SupportMessage extends Model
 {
+    use HasFactory;
+
     public const UPDATED_AT = null;
 
     protected function casts(): array
@@ -23,7 +26,7 @@ class SupportMessage extends Model
         ];
     }
 
-    public function thread(): BelongsTo
+    public function supportThread(): BelongsTo
     {
         return $this->belongsTo(SupportThread::class, 'support_thread_id');
     }
