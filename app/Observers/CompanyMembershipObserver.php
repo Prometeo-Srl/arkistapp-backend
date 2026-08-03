@@ -20,6 +20,12 @@ class CompanyMembershipObserver
             return;
         }
 
+        static::supersedePersonalPlan($membership);
+    }
+
+    /** Reused by the subscribe flow, which covers members that joined before the company subscribed. */
+    public static function supersedePersonalPlan(CompanyMembership $membership): void
+    {
         $company = $membership->company;
 
         if (! $company || $company->isPersonal()) {

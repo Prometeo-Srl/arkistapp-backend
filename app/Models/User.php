@@ -83,6 +83,14 @@ class User extends Authenticatable
             ->where('kind', WorkspaceKind::Personal);
     }
 
+    public function isMemberOf(Company $company): bool
+    {
+        return $this->memberships()
+            ->where('company_id', $company->getKey())
+            ->where('status', MembershipStatus::Active)
+            ->exists();
+    }
+
     public function isAdminOf(Company $company): bool
     {
         return $this->memberships()
