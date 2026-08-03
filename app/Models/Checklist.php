@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ChecklistStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 class Checklist extends Model
 {
+    use HasFactory;
     use SoftDeletes;
 
     protected function casts(): array
