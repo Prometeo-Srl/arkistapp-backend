@@ -1,0 +1,233 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Enums\MediaKind;
+use App\Http\Requests\StoreFileRequest;
+use App\Http\Requests\StoreFileVersionRequest;
+use App\Http\Requests\UpdateFileRequest;
+use App\Http\Resources\AcknowledgementResource;
+use App\Http\Resources\DocumentTypeResource;
+use App\Http\Resources\FileResource;
+use App\Models\Acknowledgement;
+use App\Models\Company;
+use App\Models\DocumentType;
+use App\Models\File;
+use App\Models\Folder;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+
+class FileController extends Controller
+{
+    public function documentTypes(): AnonymousResourceCollection
+    {
+        return DocumentTypeResource::collection(
+            DocumentType::query()->orderBy('label')->get()
+        );
+    }
+
+    public function index(Request $request, Company $company)
+    {
+        $this->authorize('view', $company);
+
+        $validated = $request->validate([
+            'folder_id' => ['nullable', 'integer', Rule::exists('folders', 'id')],
+            'expiring' => ['nullable', 'integer', 'min:1'],
+            'media_kind' => ['nullable', Rule::enum(MediaKind::class)],
+        ]);
+
+        $files = File::query()
+            ->whereHas('folder.category', fn (Builder $q) => $q->where('company_id', $company->getKey()))
+            ->when($validated['folder_id'] ?? null, fn (Builder $q, $id) => $q->where('folder_id', $id))
+            ->when($validated['media_kind'] ?? null, fn (Builder $q, $kind) => $q->where('media_kind', $kind))
+            ->when($validated['expiring'] ?? null, function (Builder $q) use ($validated) {
+                $q->whereNotNull('expires_at')
+                    ->whereBetween('expires_at', [
+                        now()->toDateString(),
+                        now()->addDays((int) $validated['expiring'])->toDateString(),
+                    ]);
+            })
+            ->where(fn (Builder $q) => $this->scopeVisibleFolders($q, $request->user(), $company))
+            ->with(['currentVersion', 'documentType', 'folder'])
+            ->latest()
+            ->get();
+
+        return FileResource::collection($files);
+    }
+
+    /** Multipart upload: stores the blob and creates the first version. */
+    public function store(StoreFileRequest $request)
+    {
+        $folder = Folder::query()->findOrFail($request->validated('folder_id'));
+        $this->authorize('create', [File::class, $folder]);
+
+        $upload = $request->file('file');
+        $companyId = $folder->category->company_id;
+        $storagePath = Storage::putFile("documents/{$companyId}", $upload);
+
+        $documentType = $request->input('document_type_id')
+            ? DocumentType::query()->find($request->input('document_type_id'))
+            : null;
+
+        $file = $folder->files()->create([
+            'name' => $request->input('name') ?? $upload->getClientOriginalName(),
+            'media_kind' => $request->input('media_kind') ?? $this->inferMediaKind($upload->getMimeType()),
+            'mime_type' => $upload->getMimeType(),
+            'size_bytes' => $upload->getSize(),
+            'document_type_id' => $documentType?->getKey(),
+            'issued_at' => $request->date('issued_at'),
+            'requires_acknowledgement' => $request->has('requires_acknowledgement')
+                ? $request->boolean('requires_acknowledgement')
+                : ($documentType?->requires_acknowledgement_default ?? false),
+            'owner_user_id' => $folder->is_personal_of_user_id,
+            'uploaded_by_id' => $request->user()->getKey(),
+        ]);
+
+        $version = $file->versions()->create([
+            'version_no' => 1,
+            'storage_path' => $storagePath,
+            'size_bytes' => $upload->getSize(),
+            'checksum' => hash_file('sha256', $upload->getRealPath()),
+            'uploaded_by_id' => $request->user()->getKey(),
+        ]);
+
+        $file->update(['current_version_id' => $version->getKey()]);
+
+        return (new FileResource($file->fresh(['currentVersion', 'documentType', 'folder'])))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    /** JSON metadata; the binary payload lives under /download. */
+    public function show(Request $request, File $file)
+    {
+        $this->authorize('view', $file);
+
+        return new FileResource($file->load(['currentVersion', 'documentType', 'folder']));
+    }
+
+    /** Streams the current version; non-members need a valid access grant. */
+    public function download(Request $request, File $file)
+    {
+        $this->authorize('download', $file);
+
+        $version = $file->currentVersion;
+        abort_unless($version, 404, 'File has no version.');
+        abort_unless(Storage::exists($version->storage_path), 404);
+
+        return Storage::response($version->storage_path, $file->name);
+    }
+
+    /** Metadata only: expires_at is recalculated by the model, never accepted here. */
+    public function update(UpdateFileRequest $request, File $file)
+    {
+        $this->authorize('update', $file);
+
+        $data = $request->safe()->only(['name', 'document_type_id', 'issued_at']);
+        if ($request->has('requires_acknowledgement')) {
+            $data['requires_acknowledgement'] = $request->boolean('requires_acknowledgement');
+        }
+
+        $file->update($data);
+
+        return new FileResource($file->fresh(['currentVersion', 'documentType', 'folder']));
+    }
+
+    public function destroy(Request $request, File $file)
+    {
+        $this->authorize('delete', $file);
+
+        $file->delete();
+
+        return response()->noContent();
+    }
+
+    /** New blob, version_no bumped; the file points at the new current version. */
+    public function storeVersion(StoreFileVersionRequest $request, File $file)
+    {
+        $this->authorize('update', $file);
+
+        $upload = $request->file('file');
+        $storagePath = Storage::putFile(
+            "documents/{$file->folder->category->company_id}",
+            $upload
+        );
+
+        $version = $file->versions()->create([
+            'version_no' => (int) $file->versions()->max('version_no') + 1,
+            'storage_path' => $storagePath,
+            'size_bytes' => $upload->getSize(),
+            'checksum' => hash_file('sha256', $upload->getRealPath()),
+            'uploaded_by_id' => $request->user()->getKey(),
+            'replaced_reason' => $request->input('replaced_reason'),
+        ]);
+
+        $file->update([
+            'current_version_id' => $version->getKey(),
+            'size_bytes' => $upload->getSize(),
+            'mime_type' => $upload->getMimeType(),
+        ]);
+
+        return (new FileResource($file->fresh(['currentVersion', 'documentType', 'folder'])))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    /** Read receipt, unique per version: a new version demands a new confirmation. */
+    public function acknowledge(Request $request, File $file)
+    {
+        $this->authorize('download', $file);
+
+        $versionId = $file->current_version_id;
+        abort_unless($versionId, 422, 'File has no version.');
+
+        $ack = Acknowledgement::updateOrCreate(
+            ['file_version_id' => $versionId, 'user_id' => $request->user()->getKey()],
+            [
+                'file_id' => $file->getKey(),
+                'required_at' => $file->requires_acknowledgement ? now() : null,
+                'viewed_at' => now(),
+                'confirmed_at' => now(),
+                'ip_address' => $request->ip(),
+            ]
+        );
+
+        return (new AcknowledgementResource($ack))->response()
+            ->setStatusCode($ack->wasRecentlyCreated ? 201 : 200);
+    }
+
+    public function acknowledgements(Request $request, File $file)
+    {
+        $this->authorize('view', $file);
+
+        return AcknowledgementResource::collection(
+            $file->acknowledgements()->with(['user', 'fileVersion'])->latest()->get()
+        );
+    }
+
+    private function inferMediaKind(?string $mime): MediaKind
+    {
+        return match (true) {
+            str_starts_with((string) $mime, 'image/') => MediaKind::Image,
+            str_starts_with((string) $mime, 'audio/') => MediaKind::Audio,
+            str_starts_with((string) $mime, 'video/') => MediaKind::Video,
+            default => MediaKind::Document,
+        };
+    }
+
+    /** Everyone sees shared folders; personal folders only their owner and the admins. */
+    private function scopeVisibleFolders(Builder $q, $user, Company $company): Builder
+    {
+        if ($user->isAdminOf($company)) {
+            return $q;
+        }
+
+        return $q->whereHas('folder', function (Builder $q) use ($user) {
+            $q->whereNull('is_personal_of_user_id')
+                ->orWhere('is_personal_of_user_id', $user->getKey());
+        });
+    }
+}
