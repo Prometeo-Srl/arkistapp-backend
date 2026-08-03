@@ -29,7 +29,7 @@ return new class extends Migration
             $table->unsignedSmallInteger('position')->default(0);
         });
 
-        // Il drag&drop del prototipo riscrive (checklist_section_id, position).
+        // The prototype's drag & drop rewrites (checklist_section_id, position).
         Schema::create('checklist_questions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('checklist_section_id')->constrained()->cascadeOnDelete();

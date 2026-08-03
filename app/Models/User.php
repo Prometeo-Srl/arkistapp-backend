@@ -46,7 +46,7 @@ class User extends Authenticatable
         ];
     }
 
-    /** Amministratore di sistema: opera su tutti i tenant, non ha membership. */
+    /** System administrator: operates across every tenant, holds no membership. */
     public function isOperator(): bool
     {
         return $this->type === UserType::PrometeoOperator;
@@ -57,7 +57,7 @@ class User extends Authenticatable
         return $this->hasMany(CompanyMembership::class);
     }
 
-    /** Più di una quando l'utente segue diverse aziende ("Cambio profilo"). */
+    /** More than one when the user follows several companies ("Cambio profilo"). */
     public function companies(): BelongsToMany
     {
         return $this->belongsToMany(Company::class, 'company_memberships')
@@ -71,7 +71,7 @@ class User extends Authenticatable
         return $this->companies()->wherePivot('status', MembershipStatus::Active->value);
     }
 
-    /** Aziende vere, escluso il workspace personale. */
+    /** Real companies, excluding the personal workspace. */
     public function businessCompanies(): BelongsToMany
     {
         return $this->activeCompanies()->where('kind', WorkspaceKind::Business);
@@ -93,8 +93,8 @@ class User extends Authenticatable
     }
 
     /**
-     * Un abbonamento aziendale copre il lavoratore associato: basta che uno
-     * qualsiasi dei suoi workspace attivi (personale o aziendale) sia coperto.
+     * A company subscription covers the associated worker: it is enough that any
+     * one of their active workspaces (personal or company) is covered.
      */
     public function hasEntitlingSubscription(): bool
     {
@@ -133,7 +133,7 @@ class User extends Authenticatable
         return $this->hasMany(SupportThread::class, 'opened_by_id');
     }
 
-    /** Grant di condivisione diretti (esclusi quelli ereditati dai ruoli organigramma). */
+    /** Direct sharing grants, excluding those inherited from org chart roles. */
     public function directAccessGrants(): HasMany
     {
         return $this->hasMany(AccessGrant::class, 'grantee_id')->where('grantee_type', 'user');

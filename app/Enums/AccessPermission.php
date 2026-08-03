@@ -3,7 +3,7 @@
 namespace App\Enums;
 
 /**
- * Livelli di condivisione dei prototipi XD (popup info Visualizzatore/Custode/Editor).
+ * Sharing levels from the XD prototypes (Visualizzatore / Custode / Editor info popups).
  */
 enum AccessPermission: string
 {

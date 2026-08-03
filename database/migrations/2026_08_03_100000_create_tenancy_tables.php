@@ -50,7 +50,7 @@ return new class extends Migration
             $table->unique(['company_id', 'user_id']);
         });
 
-        // Ruoli dell'organigramma ex D.Lgs 81/08. Seed statico, non gestito da UI.
+        // Org chart roles from D.Lgs 81/08. Static seed, not managed through the UI.
         Schema::create('org_roles', function (Blueprint $table) {
             $table->id();
             $table->string('code')->unique();
@@ -66,7 +66,7 @@ return new class extends Migration
             $table->foreignId('org_role_id')->constrained()->cascadeOnDelete();
             $table->date('appointed_at')->nullable();
             $table->date('revoked_at')->nullable();
-            // FK aggiunta in create_document_tables: la tabella files non esiste ancora.
+            // FK added in create_document_tables: the files table does not exist yet.
             $table->unsignedBigInteger('appointment_file_id')->nullable();
             $table->timestamps();
 

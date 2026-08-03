@@ -53,7 +53,7 @@ class CompanyMembership extends Pivot
 
     public function orgRoles(): BelongsToMany
     {
-        // Chiavi pivot esplicite: su un Pivot autonomo getForeignKey() non le deduce.
+        // Explicit pivot keys: on a standalone Pivot, getForeignKey() cannot infer them.
         return $this->belongsToMany(OrgRole::class, 'membership_roles', 'company_membership_id', 'org_role_id')
             ->using(MembershipRole::class)
             ->withPivot(['appointed_at', 'revoked_at', 'appointment_file_id'])

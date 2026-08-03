@@ -1,20 +1,20 @@
-# Documentazione Prometeo
+# Prometeo documentation
 
-| File | A chi serve | Cosa contiene |
+| File | Audience | Contents |
 |---|---|---|
-| `er-model.html` | Cliente, nuovi sviluppatori | Modello ER illustrato: un diagramma per dominio, campi chiave, regole e punti aperti. |
-| `er-model.md` | Sviluppatori | Riferimento completo: ogni entità con tutti i campi, vincoli trasversali, stato di implementazione. |
-| `Prometeo.pdf` | — | Capitolato tecnico originale (Allegato 1 – Piano delle Attività). Fonte, non modificare. |
+| `er-model.html` | Client, new developers | Illustrated ER model: one diagram per domain, key fields, rules and open questions. |
+| `er-model.md` | Developers | Full reference: every entity with all its fields, cross-cutting constraints, implementation status. |
+| `Prometeo.pdf` | — | Original technical specification (Allegato 1 – Piano delle Attività). A source: do not edit. |
 
-`er-model.html` è la sorgente della pagina pubblicata, non un file autonomo: i diagrammi
-sono blocchi Mermaid renderizzati da chi ospita la pagina, quindi aprendolo da disco si
-vede il testo dei diagrammi e non il disegno. Per leggerlo come lo vede il cliente serve
-la versione pubblicata; per aggiornarlo si modifica il testo del diagramma, non un'immagine.
-`er-model.md` invece si legge nudo: i suoi blocchi Mermaid li rendono GitHub e gli IDE.
+`er-model.html` is the source of the published page, not a standalone file: its diagrams are
+Mermaid blocks rendered by whoever hosts the page, so opening it straight from disk shows the
+diagram source rather than the drawing. To read it the way the client sees it, use the published
+version; to update a diagram, edit its text rather than an image. `er-model.md`, on the other
+hand, reads fine as-is — GitHub and IDEs render its Mermaid blocks.
 
-Pagina pubblicata: https://claude.ai/code/artifact/22853e10-2a2c-4d0d-a4b9-b54200ef661f
+Published page: https://claude.ai/code/artifact/22853e10-2a2c-4d0d-a4b9-b54200ef661f
 
-Le altre due fonti del modello sono i prototipi XD:
+The model's other two sources are the XD prototypes:
 
-- azienda — https://xd.adobe.com/view/3f0926e3-d024-4d99-b0b1-d67bfc5be0af-6a5a/grid
-- lavoratore — https://xd.adobe.com/view/488bdfc2-6a3e-4a6b-8210-f0786cdb3854-1dd8/grid
+- company — https://xd.adobe.com/view/3f0926e3-d024-4d99-b0b1-d67bfc5be0af-6a5a/grid
+- worker — https://xd.adobe.com/view/488bdfc2-6a3e-4a6b-8210-f0786cdb3854-1dd8/grid

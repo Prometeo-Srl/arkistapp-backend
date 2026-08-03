@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Regole di scadenza dinamica: validity_months guida il calcolo di files.expires_at.
+        // Dynamic expiry rules: validity_months drives the files.expires_at calculation.
         Schema::create('document_types', function (Blueprint $table) {
             $table->id();
             $table->string('code')->unique();
@@ -39,7 +39,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('icon')->nullable();
             $table->unsignedSmallInteger('position')->default(0);
-            // Cartella individuale del lavoratore: destinazione del caricamento massivo attestati.
+            // The worker's individual folder: target of the bulk certificate upload.
             $table->foreignId('is_personal_of_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('created_by_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
@@ -86,7 +86,7 @@ return new class extends Migration
             $table->foreign('appointment_file_id')->references('id')->on('files')->nullOnDelete();
         });
 
-        // Condivisione granulare: grantable = categoria|cartella|file, grantee = utente|ruolo organigramma.
+        // Granular sharing: grantable = category|folder|file, grantee = user|org role.
         Schema::create('access_grants', function (Blueprint $table) {
             $table->id();
             $table->string('grantable_type');
@@ -118,7 +118,7 @@ return new class extends Migration
             $table->string('ip_address', 45)->nullable();
             $table->timestamps();
 
-            // La presa visione vale per una singola versione: nuova versione = nuova conferma.
+            // An acknowledgement covers a single version: new version = new confirmation.
             $table->unique(['file_version_id', 'user_id']);
         });
     }

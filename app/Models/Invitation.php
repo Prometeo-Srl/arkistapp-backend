@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-/** Invito di un lavoratore in azienda, emesso anche prima che abbia un account. */
+/** Invitation of a worker into a company, issued even before they have an account. */
 #[Fillable([
     'company_id', 'email', 'token', 'org_role_id', 'is_admin',
     'invited_by_id', 'expires_at', 'accepted_at', 'accepted_user_id',

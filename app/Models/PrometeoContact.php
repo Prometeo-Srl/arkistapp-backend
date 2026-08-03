@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** Rubrica staff Prometeo, visibile a tutti i tenant. */
+/** Prometeo staff directory, visible to every tenant. */
 #[Fillable([
     'user_id', 'display_name', 'role_label', 'email',
     'phone', 'avatar_path', 'position', 'is_visible',

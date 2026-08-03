@@ -28,8 +28,8 @@ class Company extends Model
     }
 
     /**
-     * Workspace personale del lavoratore non associato: contiene il suo archivio
-     * e regge il suo abbonamento individuale.
+     * Personal workspace of an unassociated worker: holds their archive and
+     * carries their individual subscription.
      */
     public static function personalFor(User $user): self
     {
@@ -38,8 +38,8 @@ class Company extends Model
             ['name' => trim($user->name.' '.$user->surname)],
         );
 
-        // Anche il workspace personale passa da una membership: così permessi,
-        // abbonamenti e archivio seguono un unico percorso.
+        // The personal workspace goes through a membership too, so permissions,
+        // subscriptions and the archive all follow a single path.
         CompanyMembership::firstOrCreate(
             ['company_id' => $workspace->getKey(), 'user_id' => $user->getKey()],
             ['status' => MembershipStatus::Active, 'is_admin' => true],
@@ -63,7 +63,7 @@ class Company extends Model
         return $this->belongsTo(User::class, 'created_by_operator_id');
     }
 
-    /** Chi ha registrato il workspace: il datore di lavoro o il lavoratore autonomo. */
+    /** Whoever registered the workspace: the employer or the self-employed worker. */
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');
@@ -79,7 +79,7 @@ class Company extends Model
         return $this->users()->wherePivot('is_admin', true);
     }
 
-    /** Abbonamento che abilita le funzionalità, se presente. */
+    /** The subscription that unlocks the features, if any. */
     public function entitlingSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)

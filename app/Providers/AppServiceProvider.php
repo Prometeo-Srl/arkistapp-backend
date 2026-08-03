@@ -4,8 +4,8 @@ namespace App\Providers;
 
 use App\Models\Category;
 use App\Models\Checklist;
-use App\Models\Company;
 use App\Models\ChecklistAssignment;
+use App\Models\Company;
 use App\Models\File;
 use App\Models\Folder;
 use App\Models\IncidentReport;
@@ -29,8 +29,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Alias stabili per le colonne polimorfe (access_grants, activities, audit_logs):
-        // il DB non deve contenere FQCN, altrimenti un rename di classe rompe i dati.
+        // Stable aliases for the polymorphic columns (access_grants, activities, audit_logs):
+        // the database must not store FQCNs, or renaming a class breaks the stored data.
         Relation::enforceMorphMap([
             'user' => User::class,
             'company' => Company::class,

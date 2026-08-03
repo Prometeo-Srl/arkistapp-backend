@@ -60,7 +60,7 @@ class ErModelTest extends TestCase
             'is_personal_of_user_id' => $worker->id,
         ]);
 
-        // Scadenza dinamica: antincendio = 60 mesi dalla data del documento.
+        // Dynamic expiry: fire safety = 60 months from the document date.
         $antincendio = DocumentType::where('code', 'attestato_antincendio')->firstOrFail();
         $file = File::create([
             'folder_id' => $folder->id,
@@ -86,7 +86,7 @@ class ErModelTest extends TestCase
             'confirmed_at' => now(),
         ]);
 
-        // Una versione può essere confermata una volta sola dallo stesso utente.
+        // The same user can confirm a given version only once.
         $this->expectException(QueryException::class);
         Acknowledgement::create([
             'file_id' => $file->id,
@@ -113,7 +113,7 @@ class ErModelTest extends TestCase
             'permission' => AccessPermission::Custodian,
         ]);
 
-        // Grant verso un altro ruolo: non deve risultare.
+        // Grant towards a different role: must not show up.
         $category->accessGrants()->create([
             'grantee_type' => GranteeType::OrgRole,
             'grantee_id' => OrgRole::where('code', 'rls')->firstOrFail()->id,

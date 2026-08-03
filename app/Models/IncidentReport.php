@@ -36,7 +36,7 @@ class IncidentReport extends Model
     protected static function booted(): void
     {
         static::saving(function (self $report) {
-            // Una segnalazione anonima non deve restare riconducibile a chi l'ha inviata.
+            // An anonymous report must not stay traceable back to whoever filed it.
             if ($report->is_anonymous) {
                 $report->reported_by_id = null;
             }

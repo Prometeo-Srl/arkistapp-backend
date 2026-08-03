@@ -4,9 +4,9 @@ namespace App\Enums;
 
 enum WorkspaceKind: string
 {
-    /** Azienda registrata sulla piattaforma. */
+    /** A company registered on the platform. */
     case Business = 'business';
 
-    /** Workspace del lavoratore non associato: suo archivio, suo abbonamento. */
+    /** Workspace of an unassociated worker: their own archive, their own subscription. */
     case Personal = 'personal';
 }

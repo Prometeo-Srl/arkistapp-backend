@@ -12,11 +12,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->string('kind')->index();
-            // under_40_days | over_40_days, derivato da absence_days.
+            // under_40_days | over_40_days, derived from absence_days.
             $table->string('severity_bucket')->nullable()->index();
             $table->boolean('is_anonymous')->default(false);
-            // NULL obbligatorio quando is_anonymous: la segnalazione anonima non deve
-            // essere riconducibile al lavoratore (requisito PDF).
+            // Must be NULL when is_anonymous: an anonymous report may not be traceable
+            // back to the worker (requirement from the specification).
             $table->foreignId('reported_by_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('occurred_at')->nullable();
             $table->timestamp('reported_at')->nullable();

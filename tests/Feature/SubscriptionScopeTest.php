@@ -76,7 +76,7 @@ class SubscriptionScopeTest extends TestCase
         $this->assertSame($companySubscription->id, $personal->superseded_by_id);
         $this->assertNotNull($personal->canceled_at);
 
-        // L'accesso resta coperto, ora dall'abbonamento aziendale.
+        // Access stays covered, now by the company subscription.
         $this->assertTrue($worker->hasEntitlingSubscription());
         $this->assertTrue($company->hasEntitlingSubscription());
     }

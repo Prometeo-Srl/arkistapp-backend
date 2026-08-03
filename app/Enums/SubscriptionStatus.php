@@ -9,7 +9,7 @@ enum SubscriptionStatus: string
     case PastDue = 'past_due';
     case Canceled = 'canceled';
 
-    /** Piano individuale assorbito dall'abbonamento dell'azienda a cui il lavoratore è stato associato. */
+    /** Individual plan absorbed by the subscription of the company the worker joined. */
     case Superseded = 'superseded';
 
     /** @return array<int, self> */

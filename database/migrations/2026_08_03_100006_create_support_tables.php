@@ -27,7 +27,7 @@ return new class extends Migration
             $table->foreignId('sender_id')->nullable()->constrained('users')->nullOnDelete();
             $table->text('body')->nullable();
             $table->string('kind')->default('text');
-            // Solo metadato: la chiamata in-app apre il dialer di sistema.
+            // Metadata only: the in-app call opens the system dialer.
             $table->unsignedInteger('call_duration_seconds')->nullable();
             $table->timestamp('read_at')->nullable();
             $table->timestamp('created_at')->nullable();
@@ -42,7 +42,7 @@ return new class extends Migration
             $table->timestamp('created_at')->nullable();
         });
 
-        // Rubrica staff Prometeo: globale, non legata al tenant.
+        // Prometeo staff directory: global, not scoped to a tenant.
         Schema::create('prometeo_contacts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();

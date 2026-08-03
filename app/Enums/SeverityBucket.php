@@ -3,7 +3,7 @@
 namespace App\Enums;
 
 /**
- * Soglia dei 40 giorni di assenza usata dai prototipi per separare le due liste infortuni.
+ * The 40-day absence threshold the prototypes use to split the two injury lists.
  */
 enum SeverityBucket: string
 {

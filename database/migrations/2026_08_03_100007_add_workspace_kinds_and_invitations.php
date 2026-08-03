@@ -10,26 +10,26 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('companies', function (Blueprint $table) {
-            // 'personal' = workspace del lavoratore non associato ad alcuna azienda.
-            // Regge il suo archivio e il suo abbonamento individuale senza rendere
-            // company_id nullable su categories/checklists/incident_reports/activities.
+            // 'personal' = workspace of a worker not associated with any company.
+            // It holds their archive and their individual subscription without making
+            // company_id nullable on categories/checklists/incident_reports/activities.
             $table->string('kind')->default('business')->after('name')->index();
             $table->foreignId('owner_user_id')->nullable()->after('kind')->constrained('users')->nullOnDelete();
         });
 
         Schema::table('company_memberships', function (Blueprint $table) {
-            // Permessi applicativi, distinti dai ruoli D.Lgs 81/08 di org_roles:
-            // chi ha registrato l'azienda invita e gestisce i collaboratori.
+            // Application permissions, kept apart from the D.Lgs 81/08 roles in org_roles:
+            // whoever registered the company invites and manages the collaborators.
             $table->boolean('is_admin')->default(false)->after('status');
         });
 
         Schema::table('subscriptions', function (Blueprint $table) {
-            // Piano individuale disattivato perché coperto dall'abbonamento aziendale.
+            // Individual plan deactivated because the company subscription covers it.
             $table->foreignId('superseded_by_id')->nullable()->after('canceled_at')
                 ->constrained('subscriptions')->nullOnDelete();
         });
 
-        // Invito emesso prima che l'invitato abbia un account.
+        // Invitation issued before the invitee has an account.
         Schema::create('invitations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
@@ -44,7 +44,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Un solo invito pendente per (azienda, email); i consumati restano come storico.
+        // One pending invitation per (company, email); consumed ones remain as history.
         DB::statement('
             CREATE UNIQUE INDEX invitations_pending_unique
             ON invitations (company_id, email)

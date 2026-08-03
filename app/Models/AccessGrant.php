@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * Condivisione granulare su categoria/cartella/file verso un utente o un ruolo
- * dell'organigramma ("Gestisci accesso" / "Condividi" nei prototipi).
+ * Granular sharing of a category/folder/file with either a user or an org chart
+ * role ("Gestisci accesso" / "Condividi" in the prototypes).
  */
 #[Fillable([
     'grantable_type', 'grantable_id', 'grantee_type', 'grantee_id',
@@ -54,7 +54,7 @@ class AccessGrant extends Model
         $query->where(fn (Builder $q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()));
     }
 
-    /** Grant diretti dell'utente + grant dei ruoli organigramma che ricopre. */
+    /** The user's direct grants plus the grants of every org chart role they hold. */
     public function scopeForUser(Builder $query, User $user, ?int $companyId = null): void
     {
         $roleIds = MembershipRole::query()

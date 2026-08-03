@@ -6,8 +6,8 @@ use App\Models\DocumentType;
 use Illuminate\Database\Seeder;
 
 /**
- * validity_months guida il ricalcolo automatico di files.expires_at.
- * reminder_offsets = giorni prima della scadenza in cui parte la notifica.
+ * validity_months drives the automatic recalculation of files.expires_at.
+ * reminder_offsets = days before expiry at which the notification fires.
  */
 class DocumentTypeSeeder extends Seeder
 {

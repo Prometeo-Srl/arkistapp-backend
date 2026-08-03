@@ -33,7 +33,7 @@ class MembershipRole extends Pivot
         return $this->belongsTo(OrgRole::class);
     }
 
-    /** Lettera di nomina archiviata come file documentale. */
+    /** Appointment letter stored as a document file. */
     public function appointmentFile(): BelongsTo
     {
         return $this->belongsTo(File::class, 'appointment_file_id');

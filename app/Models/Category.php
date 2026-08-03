@@ -29,7 +29,7 @@ class Category extends Model
         return $this->hasMany(Folder::class);
     }
 
-    /** Cartelle di primo livello. */
+    /** Top-level folders. */
     public function rootFolders(): HasMany
     {
         return $this->hasMany(Folder::class)->whereNull('parent_folder_id');

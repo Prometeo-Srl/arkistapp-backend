@@ -11,8 +11,8 @@ use App\Models\Subscription;
 class CompanyMembershipObserver
 {
     /**
-     * Un lavoratore associato a un'azienda con abbonamento attivo non deve più pagare
-     * il piano individuale: l'abbonamento del suo workspace personale viene assorbito.
+     * A worker joining a company with an active subscription must no longer pay for
+     * an individual plan: the subscription of their personal workspace gets absorbed.
      */
     public function saved(CompanyMembership $membership): void
     {

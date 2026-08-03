@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\Plan;
 use Illuminate\Database\Seeder;
 
-/** Piani mostrati in "Menu - Abbonamento" (Free / Premium mensile / Premium annuale). */
+/** Plans shown in "Menu - Abbonamento" (Free / Premium monthly / Premium yearly). */
 class PlanSeeder extends Seeder
 {
     public function run(): void

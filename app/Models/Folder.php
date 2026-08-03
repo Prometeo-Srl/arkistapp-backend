@@ -37,7 +37,7 @@ class Folder extends Model
         return $this->hasMany(File::class);
     }
 
-    /** Se valorizzato, è la cartella individuale di quel lavoratore. */
+    /** When set, this is that worker's individual folder. */
     public function personalOf(): BelongsTo
     {
         return $this->belongsTo(User::class, 'is_personal_of_user_id');

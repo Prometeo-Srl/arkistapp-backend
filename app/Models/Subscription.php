@@ -30,7 +30,7 @@ class Subscription extends Model
         $query->whereIn('status', SubscriptionStatus::entitling());
     }
 
-    /** Chiude questo piano individuale, coperto dall'abbonamento aziendale. */
+    /** Closes this individual plan, now covered by the company subscription. */
     public function supersedeWith(self $companySubscription): void
     {
         $this->update([

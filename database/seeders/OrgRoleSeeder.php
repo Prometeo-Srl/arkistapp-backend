@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Models\OrgRole;
 use Illuminate\Database\Seeder;
 
-/** Ruoli dell'organigramma raccolti dal flusso "Imposta Organigramma" del prototipo azienda. */
+/** Org chart roles collected from the "Imposta Organigramma" flow of the company prototype. */
 class OrgRoleSeeder extends Seeder
 {
     public function run(): void

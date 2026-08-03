@@ -35,8 +35,8 @@ class File extends Model
     }
 
     /**
-     * Scadenza documentale dinamica: data del documento + validità del tipo.
-     * Una scadenza impostata a mano non viene sovrascritta.
+     * Dynamic document expiry: document date + the validity of its type.
+     * An expiry date set by hand is never overwritten.
      */
     public function recalculateExpiry(): void
     {

@@ -8,8 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Alimenta "Monitora attività". Materializzata (e non vista) perché entrambi
-        // i prototipi la filtrano e paginano per stato/tipo/scadenza.
+        // Backs the "Monitora attività" screen. Materialized rather than a view
+        // because both prototypes filter and paginate it by status/kind/due date.
         Schema::create('activities', function (Blueprint $table) {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
@@ -27,8 +27,8 @@ return new class extends Migration
             $table->index(['assignee_user_id', 'status'], 'activities_assignee_index');
         });
 
-        // Schema compatibile con Illuminate\Notifications\DatabaseNotification
-        // (id uuid + notifiable morph + data), più le colonne di dominio Prometeo.
+        // Schema compatible with Illuminate\Notifications\DatabaseNotification
+        // (uuid id + notifiable morph + data), plus the Prometeo domain columns.
         Schema::create('notifications', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('type');

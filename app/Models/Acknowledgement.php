@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Presa visione obbligatoria. Legata alla versione: una nuova versione del file
- * richiede una nuova conferma.
+ * Mandatory read receipt. Bound to the version: a new version of the file
+ * requires a new confirmation.
  */
 #[Fillable([
     'file_id', 'file_version_id', 'user_id', 'required_at',

@@ -11,8 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * Riga di "Monitora attività": documento da leggere, checklist da compilare,
- * attestato da rinnovare.
+ * A row of "Monitora attività": a document to read, a checklist to fill in,
+ * a certificate to renew.
  */
 #[Fillable([
     'company_id', 'subject_type', 'subject_id', 'assignee_user_id',
