@@ -33,7 +33,13 @@ class FolderController extends Controller
 
     public function store(StoreFolderRequest $request, Company $company)
     {
-        $this->authorize('create', [Folder::class, $company]);
+        // The parent decides whether a non-admin may create here: inside their own
+        // personal branch, or wherever they hold an editor grant.
+        $parent = $request->validated('parent_folder_id')
+            ? Folder::query()->findOrFail($request->validated('parent_folder_id'))
+            : null;
+
+        $this->authorize('create', [Folder::class, $company, $parent]);
 
         $folder = $company->categories()
             ->findOrFail($request->validated('category_id'))

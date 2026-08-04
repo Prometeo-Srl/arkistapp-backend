@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\ChecklistStatus;
+use App\Enums\SubmissionStatus;
 use App\Models\Checklist;
 use App\Models\ChecklistAssignment;
 use App\Models\ChecklistOption;
@@ -291,7 +292,7 @@ class ChecklistApiTest extends TestCase
             ->assertJsonCount(2, 'data.answers');
 
         $submission = ChecklistSubmission::firstOrFail();
-        $this->assertSame('completed', $submission->status);
+        $this->assertSame(SubmissionStatus::Completed, $submission->status);
         $this->assertNotNull($submission->submitted_at);
         $this->assertSame('completed', $assignment->fresh()->status->value);
         $this->assertDatabaseHas('checklist_answers', [

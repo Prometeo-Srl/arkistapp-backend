@@ -38,9 +38,17 @@ class StoreAccessGrantRequest extends FormRequest
 
         return [
             'grantable_type' => ['required', Rule::in(['category', 'folder', 'file'])],
-            'grantable_id' => ['required', 'integer', Rule::exists($grantableTable ?? 'categories', 'id')],
+            // No default table when the type is unknown: the existence check would then
+            // run against an unrelated table and report a misleading error.
+            'grantable_id' => array_filter([
+                'required', 'integer',
+                $grantableTable ? Rule::exists($grantableTable, 'id') : null,
+            ]),
             'grantee_type' => ['required', Rule::in(['user', 'org_role'])],
-            'grantee_id' => ['required', 'integer', Rule::exists($granteeTable ?? 'users', 'id')],
+            'grantee_id' => array_filter([
+                'required', 'integer',
+                $granteeTable ? Rule::exists($granteeTable, 'id') : null,
+            ]),
             'permission' => ['required', Rule::enum(AccessPermission::class)],
             'expires_at' => ['nullable', 'date'],
         ];

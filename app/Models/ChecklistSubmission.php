@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SubmissionStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,7 @@ class ChecklistSubmission extends Model
     protected function casts(): array
     {
         return [
+            'status' => SubmissionStatus::class,
             'started_at' => 'datetime',
             'submitted_at' => 'datetime',
         ];

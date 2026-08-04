@@ -18,18 +18,34 @@ class CompanyController extends Controller
      */
     public function index(Request $request)
     {
-        $user = $request->user();
-
-        if (! $user->isOperator()) {
-            // Operators hold no membership; workers get their personal workspace lazily.
-            Company::personalFor($user);
-        }
-
         return CompanyResource::collection(
-            $user->activeCompanies()
+            $request->user()->activeCompanies()
                 ->with(['brandingSetting', 'entitlingSubscription.plan'])
                 ->get()
         );
+    }
+
+    /**
+     * The personal workspace of an unassociated worker, created on demand.
+     *
+     * It used to be created as a side effect of GET /companies, which made a read
+     * request write and handed a personal workspace to every employee who only ever
+     * belonged to a company. Idempotent: repeated calls return the same workspace.
+     */
+    public function personal(Request $request)
+    {
+        $user = $request->user();
+
+        abort_if($user->isOperator(), 422, 'A super admin holds no personal workspace.');
+
+        // Query the relation rather than the property: a loaded relation can be stale,
+        // and the status code has to reflect the database, not a cached value.
+        $existed = $user->personalWorkspace()->exists();
+        $workspace = Company::personalFor($user);
+
+        return (new CompanyResource($workspace->load(['brandingSetting', 'entitlingSubscription.plan'])))
+            ->response()
+            ->setStatusCode($existed ? 200 : 201);
     }
 
     public function store(StoreCompanyRequest $request)

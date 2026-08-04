@@ -658,6 +658,17 @@ erDiagram
         </div>
 
         <div class="note">
+          <span class="label">The levels are enforced, not just recorded</span>
+          <p>
+            Every write path resolves the strongest grant covering the file, walking up from
+            the file to its folder chain and category, so a grant on a category reaches the
+            files beneath it. Grants only ever add access: a member of the company already
+            reads its shared archive, and the owner of a personal folder always manages
+            their own branch.
+          </p>
+        </div>
+
+        <div class="note">
           <span class="label">Acknowledgement bound to the version</span>
           <p>
             The unique constraint is on <code>(file_version_id, user_id)</code>, not on
@@ -869,7 +880,7 @@ erDiagram
               <tr>
                 <td>Worker permissions — <b>settled</b></td>
                 <td>The specification grants read-only access; the worker prototype has folder creation and file upload</td>
-                <td>The prototypes win. Policy only: an <code>editor</code> grant on the personal folder, read-only elsewhere</td>
+                <td>The prototypes win. Policy only: the worker manages their own personal branch, read-only elsewhere</td>
               </tr>
             </tbody>
           </table>

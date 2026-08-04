@@ -36,12 +36,19 @@ class TenancyApiTest extends TestCase
     {
         $worker = $this->actingAsUser();
 
-        $this->getJson('/api/companies')->assertOk();
+        // Listing is a pure read: it no longer creates the personal workspace.
+        $this->getJson('/api/companies')->assertOk()->assertJsonCount(0, 'data');
+        $this->assertDatabaseMissing('companies', ['owner_user_id' => $worker->id]);
+
+        $this->postJson('/api/companies/personal')->assertCreated();
+        // Idempotent: asking twice returns the same workspace.
+        $this->postJson('/api/companies/personal')->assertOk();
 
         $this->assertDatabaseHas('companies', [
             'kind' => 'personal',
             'owner_user_id' => $worker->id,
         ]);
+        $this->assertSame(1, Company::where('owner_user_id', $worker->id)->count());
         $this->assertTrue($worker->isAdminOf($worker->personalWorkspace));
     }
 

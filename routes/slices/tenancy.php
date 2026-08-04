@@ -11,6 +11,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Workspaces ("Cambio profilo") and company profile.
     Route::get('/companies', [CompanyController::class, 'index']);
     Route::post('/companies', [CompanyController::class, 'store']);
+    Route::post('/companies/personal', [CompanyController::class, 'personal']);
     Route::get('/companies/{company}', [CompanyController::class, 'show']);
     Route::patch('/companies/{company}', [CompanyController::class, 'update']);
 

@@ -16,6 +16,16 @@ enum AccessPermission: string
         return true;
     }
 
+    /** Higher wins when several grants cover the same file through different levels. */
+    public function rank(): int
+    {
+        return match ($this) {
+            self::Viewer => 1,
+            self::Custodian => 2,
+            self::Editor => 3,
+        };
+    }
+
     public function canManageExpiry(): bool
     {
         return $this !== self::Viewer;

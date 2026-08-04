@@ -17,6 +17,7 @@ use App\Models\Folder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -53,7 +54,8 @@ class FileController extends Controller
             ->where(fn (Builder $q) => $this->scopeVisibleFolders($q, $request->user(), $company))
             ->with(['currentVersion', 'documentType', 'folder'])
             ->latest()
-            ->get();
+            // An archive grows without bound: paginate like the other list endpoints.
+            ->paginate($request->integer('per_page', 50));
 
         return FileResource::collection($files);
     }
@@ -72,29 +74,35 @@ class FileController extends Controller
             ? DocumentType::query()->find($request->input('document_type_id'))
             : null;
 
-        $file = $folder->files()->create([
-            'name' => $request->input('name') ?? $upload->getClientOriginalName(),
-            'media_kind' => $request->input('media_kind') ?? $this->inferMediaKind($upload->getMimeType()),
-            'mime_type' => $upload->getMimeType(),
-            'size_bytes' => $upload->getSize(),
-            'document_type_id' => $documentType?->getKey(),
-            'issued_at' => $request->date('issued_at'),
-            'requires_acknowledgement' => $request->has('requires_acknowledgement')
-                ? $request->boolean('requires_acknowledgement')
-                : ($documentType?->requires_acknowledgement_default ?? false),
-            'owner_user_id' => $folder->is_personal_of_user_id,
-            'uploaded_by_id' => $request->user()->getKey(),
-        ]);
+        // One transaction: a file row without its first version is unusable, and the
+        // caller would have no way to tell that half the write landed.
+        $file = DB::transaction(function () use ($folder, $request, $upload, $documentType, $storagePath) {
+            $file = $folder->files()->create([
+                'name' => $request->input('name') ?? $upload->getClientOriginalName(),
+                'media_kind' => $request->input('media_kind') ?? $this->inferMediaKind($upload->getMimeType()),
+                'mime_type' => $upload->getMimeType(),
+                'size_bytes' => $upload->getSize(),
+                'document_type_id' => $documentType?->getKey(),
+                'issued_at' => $request->date('issued_at'),
+                'requires_acknowledgement' => $request->has('requires_acknowledgement')
+                    ? $request->boolean('requires_acknowledgement')
+                    : ($documentType?->requires_acknowledgement_default ?? false),
+                'owner_user_id' => $folder->is_personal_of_user_id,
+                'uploaded_by_id' => $request->user()->getKey(),
+            ]);
 
-        $version = $file->versions()->create([
-            'version_no' => 1,
-            'storage_path' => $storagePath,
-            'size_bytes' => $upload->getSize(),
-            'checksum' => hash_file('sha256', $upload->getRealPath()),
-            'uploaded_by_id' => $request->user()->getKey(),
-        ]);
+            $version = $file->versions()->create([
+                'version_no' => 1,
+                'storage_path' => $storagePath,
+                'size_bytes' => $upload->getSize(),
+                'checksum' => hash_file('sha256', $upload->getRealPath()),
+                'uploaded_by_id' => $request->user()->getKey(),
+            ]);
 
-        $file->update(['current_version_id' => $version->getKey()]);
+            $file->update(['current_version_id' => $version->getKey()]);
+
+            return $file;
+        });
 
         return (new FileResource($file->fresh(['currentVersion', 'documentType', 'folder'])))
             ->response()
@@ -152,7 +160,7 @@ class FileController extends Controller
     /** New blob, version_no bumped; the file points at the new current version. */
     public function storeVersion(StoreFileVersionRequest $request, File $file)
     {
-        $this->authorize('update', $file);
+        $this->authorize('replaceVersion', $file);
 
         $upload = $request->file('file');
         $storagePath = Storage::putFile(
@@ -160,20 +168,26 @@ class FileController extends Controller
             $upload
         );
 
-        $version = $file->versions()->create([
-            'version_no' => (int) $file->versions()->max('version_no') + 1,
-            'storage_path' => $storagePath,
-            'size_bytes' => $upload->getSize(),
-            'checksum' => hash_file('sha256', $upload->getRealPath()),
-            'uploaded_by_id' => $request->user()->getKey(),
-            'replaced_reason' => $request->input('replaced_reason'),
-        ]);
+        // (file_id, version_no) is unique, so two simultaneous uploads would collide on
+        // max()+1. Locking the file row serialises them instead of failing one with a 500.
+        DB::transaction(function () use ($file, $request, $upload, $storagePath) {
+            File::query()->whereKey($file->getKey())->lockForUpdate()->first();
 
-        $file->update([
-            'current_version_id' => $version->getKey(),
-            'size_bytes' => $upload->getSize(),
-            'mime_type' => $upload->getMimeType(),
-        ]);
+            $version = $file->versions()->create([
+                'version_no' => (int) $file->versions()->max('version_no') + 1,
+                'storage_path' => $storagePath,
+                'size_bytes' => $upload->getSize(),
+                'checksum' => hash_file('sha256', $upload->getRealPath()),
+                'uploaded_by_id' => $request->user()->getKey(),
+                'replaced_reason' => $request->input('replaced_reason'),
+            ]);
+
+            $file->update([
+                'current_version_id' => $version->getKey(),
+                'size_bytes' => $upload->getSize(),
+                'mime_type' => $upload->getMimeType(),
+            ]);
+        });
 
         return (new FileResource($file->fresh(['currentVersion', 'documentType', 'folder'])))
             ->response()
@@ -188,19 +202,28 @@ class FileController extends Controller
         $versionId = $file->current_version_id;
         abort_unless($versionId, 422, 'File has no version.');
 
-        $ack = Acknowledgement::updateOrCreate(
-            ['file_version_id' => $versionId, 'user_id' => $request->user()->getKey()],
-            [
-                'file_id' => $file->getKey(),
-                'required_at' => $file->requires_acknowledgement ? now() : null,
-                'viewed_at' => now(),
-                'confirmed_at' => now(),
-                'ip_address' => $request->ip(),
-            ]
-        );
+        // required_at records when the receipt became due, so it is written once and
+        // then left alone: re-confirming must not rewrite the moment it was requested.
+        $ack = Acknowledgement::firstOrNew([
+            'file_version_id' => $versionId,
+            'user_id' => $request->user()->getKey(),
+        ]);
+
+        $isFirstConfirmation = ! $ack->exists;
+
+        if ($isFirstConfirmation) {
+            $ack->file_id = $file->getKey();
+            $ack->required_at = $file->requires_acknowledgement ? now() : null;
+        }
+
+        $ack->fill([
+            'viewed_at' => now(),
+            'confirmed_at' => now(),
+            'ip_address' => $request->ip(),
+        ])->save();
 
         return (new AcknowledgementResource($ack))->response()
-            ->setStatusCode($ack->wasRecentlyCreated ? 201 : 200);
+            ->setStatusCode($isFirstConfirmation ? 201 : 200);
     }
 
     public function acknowledgements(Request $request, File $file)

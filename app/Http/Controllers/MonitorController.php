@@ -24,7 +24,9 @@ class MonitorController extends Controller
     /** Board: company-scoped, filterable by status/kind/assignee, latest first. */
     public function index(Request $request, Company $company)
     {
-        abort_unless($request->user()->isMemberOf($company), 403);
+        // Through the policy, so the operator's before() bypass applies here too:
+        // a raw isMemberOf() check locked the super admin out of the board.
+        $this->authorize('view', $company);
 
         $filters = $request->validate([
             'status' => ['nullable', Rule::enum(ActivityStatus::class)],
@@ -74,8 +76,7 @@ class MonitorController extends Controller
     /** Audit trail is sensitive: admins and operators only. */
     public function auditLog(Request $request, Company $company)
     {
-        $user = $request->user();
-        abort_unless($user->isOperator() || $user->isAdminOf($company), 403);
+        $this->authorize('update', $company);
 
         $filters = $request->validate([
             'action' => ['nullable', 'string', 'max:255'],
@@ -95,7 +96,7 @@ class MonitorController extends Controller
     /** Billing history of a subscription; open to every member of the company. */
     public function payments(Request $request, Subscription $subscription)
     {
-        abort_unless($request->user()->isMemberOf($subscription->company), 403);
+        $this->authorize('viewSubscription', $subscription->company);
 
         return PaymentResource::collection(
             $subscription->payments()->latest()->paginate($request->integer('per_page', 50))

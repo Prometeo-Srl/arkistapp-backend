@@ -185,6 +185,14 @@ Semantics from the prototype's info popups: **Visualizzatore** = read and downlo
 **Custode** = read plus expiry management and version replacement; **Editor** = full control.
 `grantee_type = org_role` covers "share with every preposto".
 
+> Grants cascade downwards — a grant on a category reaches its folders and their files —
+> and the strongest one wins when several apply (`App\Support\EffectiveAccess`).
+> Two things they do **not** do: they never *reduce* what a member can read, since every
+> active member of a company reads its non-personal archive by default, and they never
+> apply to a personal folder's owner, who always manages their own branch. Grants only
+> ever add access, which is why they are also how an external consultant reaches a single
+> file without being a member.
+
 **ACKNOWLEDGEMENT** — "Presa Visione dei Documenti".
 `id, file_id, file_version_id, user_id, required_at, viewed_at, confirmed_at,
 signature_path, ip_address`
@@ -209,7 +217,9 @@ The prototype's cross-section drag & drop acts on `(checklist_section_id, positi
 due_at, status(pending|in_progress|completed|expired), assigned_by_id, timestamps`
 
 **CHECKLIST_SUBMISSION** `id, checklist_assignment_id, submitted_by_id, started_at,
-submitted_at, status(draft|submitted), export_pdf_path`
+submitted_at, status(in_progress|completed), export_pdf_path`
+Unique on `checklist_assignment_id`: the relation is a HasOne, so one submission per
+assignment is enforced by the database rather than by the caller.
 
 **CHECKLIST_ANSWER** `id, checklist_submission_id, checklist_question_id,
 value_text, value_date, value_time, value_number, selected_option_ids_json, attachment_path`
@@ -295,7 +305,8 @@ already there: `superseded_by_id` records which subscription absorbed which.
 |---|---|---|
 | Tenant isolation | `company_id` on every root | Eloquent global scope driven by the authenticated user's memberships |
 | Prometeo operator bypasses the scope | `users.type` | The only role that writes across every tenant |
-| Worker writes only inside their own personal folder | ACCESS_GRANT / policy | Confirmed with the client: the worker prototype's upload screens win over the specification's read-only wording. Modelled as `permission = editor` on the personal folder, read-only everywhere else |
+| Worker writes only inside their own personal branch | `FilePolicy`, `FolderPolicy` | Confirmed with the client: the worker prototype's upload screens win over the specification's read-only wording. They upload, rename, delete and create sub-folders under their own personal folder — but not rename the personal folder itself, which belongs to the company's structure |
+| Sharing levels are enforced, not just stored | `EffectiveAccess` + policies | `custodian` updates metadata and replaces versions, `editor` also deletes, `viewer` writes nothing. Before this, `permission` was validated on the way in and then ignored |
 | One active `datore_lavoro` per company | `ORG_ROLE.is_unique_per_company` | The prototype allows a "second employer" → separate `datore_lavoro_secondario` role |
 | Expiry dates recalculated | scheduled job over FILE + DOCUMENT_TYPE | Produces NOTIFICATION and ACTIVITY `renew_certificate` |
 | Soft delete on CATEGORY/FOLDER/FILE | `deleted_at` | The prototype shows "Elimina" behind a confirmation, not immediate destruction |
@@ -328,8 +339,21 @@ Non-trivial logic already living in the models:
 - `CompanyMembershipObserver::saved()` — company subscription superseding the personal one.
 - `Invitation::booted()` — generates the token and a 14-day expiry.
 
-Not done yet: controllers/API, authorization policies, form requests, the jobs that recalculate
-expiry dates and send notifications, factories beyond `UserFactory`.
+The API, its policies, form requests and factories now exist across all seven slices
+(`routes/slices/`, `app/Http/`, `app/Policies/`, `database/factories/`).
+
+Two rules that are easy to break by accident, both now enforced in one place:
+
+- `User::activeOrgRoleIds()` / `activeCompanyIds()` — every permission derived from an org
+  role must end when the membership is archived. Both the access-grant scope and the
+  checklist assignment lookup read from here; a third caller must do the same rather than
+  write its own query.
+- `App\Support\EffectiveAccess` — resolves the strongest grant covering a file or folder,
+  walking up the folder chain to the category. All write policies go through it.
+
+Still not done: the scheduled jobs that recalculate expiry dates and send notifications,
+and self-registration (a worker's personal workspace is created by
+`POST /companies/personal`, which the client calls after the first login).
 
 ## 6. Open questions for the client
 

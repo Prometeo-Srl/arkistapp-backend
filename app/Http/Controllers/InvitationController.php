@@ -60,18 +60,33 @@ class InvitationController extends Controller
             'This invitation was issued for a different email address.'
         );
 
-        $alreadyMember = $invitation->company->memberships()
+        $existing = $invitation->company->memberships()
             ->where('user_id', $user->getKey())
-            ->exists();
+            ->first();
 
-        abort_if($alreadyMember, 422, 'You are already a member of this company.');
+        abort_if(
+            $existing?->status === MembershipStatus::Active,
+            422,
+            'You are already a member of this company.'
+        );
 
-        $membership = $invitation->company->memberships()->create([
-            'user_id' => $user->getKey(),
+        // Archiving and re-inviting is a normal flow ("profili archiviati"), and
+        // (company_id, user_id) is unique: reuse the row instead of inserting a second one.
+        $attributes = [
             'status' => MembershipStatus::Active,
             'is_admin' => $invitation->is_admin,
             'invited_by_id' => $invitation->invited_by_id,
-        ]);
+        ];
+
+        if ($existing) {
+            $existing->update($attributes);
+            $membership = $existing;
+        } else {
+            $membership = $invitation->company->memberships()->create([
+                'user_id' => $user->getKey(),
+                ...$attributes,
+            ]);
+        }
 
         if ($invitation->org_role_id) {
             $membership->orgRoles()->attach($invitation->org_role_id, ['appointed_at' => now()->toDateString()]);

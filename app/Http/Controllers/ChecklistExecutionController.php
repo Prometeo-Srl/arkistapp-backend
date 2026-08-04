@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AssignmentStatus;
 use App\Enums\GranteeType;
 use App\Enums\QuestionType;
+use App\Enums\SubmissionStatus;
 use App\Http\Requests\SubmitChecklistRequest;
 use App\Http\Resources\ChecklistAssignmentResource;
 use App\Http\Resources\ChecklistSubmissionResource;
@@ -59,7 +60,7 @@ class ChecklistExecutionController extends Controller
         $submission = $assignment->submission()->create([
             'submitted_by_id' => $user->getKey(),
             'started_at' => now(),
-            'status' => 'in_progress',
+            'status' => SubmissionStatus::InProgress,
         ]);
 
         $assignment->update(['status' => AssignmentStatus::InProgress]);
@@ -99,7 +100,7 @@ class ChecklistExecutionController extends Controller
         $submission = $assignment->submission ?? $assignment->submission()->create([
             'submitted_by_id' => $user->getKey(),
             'started_at' => now(),
-            'status' => 'in_progress',
+            'status' => SubmissionStatus::InProgress,
         ]);
 
         foreach ($answers as $answer) {
@@ -113,7 +114,7 @@ class ChecklistExecutionController extends Controller
             );
         }
 
-        $submission->update(['submitted_at' => now(), 'status' => 'completed']);
+        $submission->update(['submitted_at' => now(), 'status' => SubmissionStatus::Completed]);
         $assignment->update(['status' => AssignmentStatus::Completed]);
 
         return new ChecklistSubmissionResource($submission->load('answers'));
