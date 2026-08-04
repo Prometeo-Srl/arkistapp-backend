@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 Prometeo: JSON API backend (Laravel 13, PHP 8.3+, PostgreSQL 18) for a multi-tenant
-workplace-safety (D.Lgs 81/08) platform. Consumers are two Flutter apps — company and
-worker. No Blade UI, no frontend build: every endpoint lives under `/api`.
+workplace-safety (D.Lgs 81/08) platform. The consumer is a **single Flutter app** handling every
+role and flow (operator, company, worker) — not one app per role. No Blade UI, no frontend build:
+every endpoint lives under `/api`.
 
 Domain reference: `docs/er-model.md` (full entity/field reference + open questions),
 `docs/er-model.html` (client-facing diagrams), `docs/Prometeo.pdf` (original spec, read-only source).
@@ -94,6 +95,23 @@ Feature tests are per slice (`TenancyApiTest`, `DocumentApiTest`, `ChecklistApiT
 cross-cutting suites that must keep passing: `SecurityRegressionTest` (one test per fixed
 vulnerability — cross-tenant binding, duplicate submissions, MIME payloads) and `AccessControlTest`
 (hierarchical grant resolution). New authorization or tenancy work belongs in those.
+
+## Client repo (local machine only)
+
+The consuming Flutter app is a separate repo, **not committed here and not available in CI or on
+any other machine**. On this dev box it lives at:
+
+```
+/home/nagonere/Scrivania/dev/flutter/algomera/prometeo-flutter/
+```
+
+It has its own `CLAUDE.md`. One package (`prometeo`) serving all roles and flows — company and
+worker UI both live there, role-gated at runtime. Clean Architecture, `flutter_bloc`, Dio,
+Bearer-token auth. Useful when a change touches the API contract: check
+`lib/features/*/data/models/` and `lib/core/utils/env_config.dart` there to see what the client
+actually sends and parses before renaming a field or changing a response shape. Its dev `baseUrl`
+points at `10.0.2.2` (Android-emulator loopback to this host), so Sail must be up for the app to
+reach the API.
 
 ## Language
 
