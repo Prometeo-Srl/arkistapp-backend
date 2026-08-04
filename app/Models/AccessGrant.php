@@ -60,13 +60,7 @@ class AccessGrant extends Model
     /** The user's direct grants plus the grants of every org chart role they hold. */
     public function scopeForUser(Builder $query, User $user, ?int $companyId = null): void
     {
-        $roleIds = MembershipRole::query()
-            ->whereNull('revoked_at')
-            ->whereHas('membership', function (Builder $q) use ($user, $companyId) {
-                $q->where('user_id', $user->getKey())
-                    ->when($companyId, fn (Builder $q) => $q->where('company_id', $companyId));
-            })
-            ->pluck('org_role_id');
+        $roleIds = $user->activeOrgRoleIds($companyId);
 
         $query->where(function (Builder $q) use ($user, $roleIds) {
             $q->where(fn (Builder $q) => $q

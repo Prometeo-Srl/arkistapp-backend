@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\UploadedDocument;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -18,7 +19,7 @@ class StoreFileVersionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => ['required', 'file', 'max:20480'],
+            'file' => UploadedDocument::rules(20480),
             'replaced_reason' => ['nullable', 'string', 'max:255'],
         ];
     }

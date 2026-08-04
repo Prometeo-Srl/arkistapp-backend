@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
@@ -81,6 +82,35 @@ class User extends Authenticatable
     {
         return $this->hasOne(Company::class, 'owner_user_id')
             ->where('kind', WorkspaceKind::Personal);
+    }
+
+    /**
+     * Org role ids the user currently holds. Archiving a membership must end every
+     * permission derived from its roles, so the membership status is part of the query:
+     * this is the single source for role-derived access (grants and checklist assignments).
+     *
+     * @return Collection<int, int>
+     */
+    public function activeOrgRoleIds(?int $companyId = null): Collection
+    {
+        return MembershipRole::query()
+            ->whereNull('revoked_at')
+            ->whereHas('membership', function (Builder $query) use ($companyId) {
+                $query->where('user_id', $this->getKey())
+                    ->where('status', MembershipStatus::Active)
+                    ->when($companyId, fn (Builder $q) => $q->where('company_id', $companyId));
+            })
+            ->pluck('org_role_id');
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    public function activeCompanyIds(): Collection
+    {
+        return $this->memberships()
+            ->where('status', MembershipStatus::Active)
+            ->pluck('company_id');
     }
 
     public function isMemberOf(Company $company): bool

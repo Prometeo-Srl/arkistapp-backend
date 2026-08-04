@@ -11,8 +11,12 @@ use App\Models\Folder;
 use App\Models\IncidentReport;
 use App\Models\OrgRole;
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -42,5 +46,24 @@ class AppServiceProvider extends ServiceProvider
             'checklist_assignment' => ChecklistAssignment::class,
             'incident_report' => IncidentReport::class,
         ]);
+
+        $this->configureRateLimiting();
+    }
+
+    /**
+     * Laravel 11+ no longer throttles API routes by default, so the endpoints that
+     * hand out or redeem credentials need an explicit limit: without one, both the
+     * login form and the invitation token are open to unlimited guessing.
+     */
+    private function configureRateLimiting(): void
+    {
+        RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)
+            ->by(Str::lower((string) $request->input('email')).'|'.$request->ip()));
+
+        RateLimiter::for('invitations', fn (Request $request) => Limit::perMinute(10)
+            ->by($request->user()?->getAuthIdentifier() ?: $request->ip()));
+
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)
+            ->by($request->user()?->getAuthIdentifier() ?: $request->ip()));
     }
 }

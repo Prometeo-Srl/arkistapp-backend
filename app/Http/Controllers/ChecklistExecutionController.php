@@ -11,7 +11,6 @@ use App\Http\Resources\ChecklistSubmissionResource;
 use App\Models\ChecklistAssignment;
 use App\Models\ChecklistQuestion;
 use App\Models\ChecklistSubmission;
-use App\Models\MembershipRole;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -24,13 +23,16 @@ class ChecklistExecutionController extends Controller
     {
         $user = $request->user();
         $roleIds = $this->roleIdsFor($user);
-        $companyIds = $user->memberships()->pluck('company_id');
+        $companyIds = $user->activeCompanyIds();
 
         $assignments = ChecklistAssignment::query()
             ->where(function (Builder $query) use ($user, $roleIds, $companyIds) {
+                // Direct assignments still require an active membership in the company:
+                // an archived worker keeps no open work.
                 $query->where(fn (Builder $q) => $q
                     ->where('assignee_type', GranteeType::User)
-                    ->where('assignee_id', $user->getKey()));
+                    ->where('assignee_id', $user->getKey())
+                    ->whereHas('checklist', fn (Builder $cq) => $cq->whereIn('company_id', $companyIds)));
 
                 if ($roleIds->isNotEmpty()) {
                     $query->orWhere(fn (Builder $q) => $q
@@ -91,8 +93,10 @@ class ChecklistExecutionController extends Controller
         $missing = $questions->filter(fn (ChecklistQuestion $question) => $question->is_required && ! $answeredIds->contains($question->getKey()));
         abort_if($missing->isNotEmpty(), 422, 'Missing required questions: '.$missing->pluck('id')->implode(', '));
 
-        // Start is implicit when the assignee submits without calling start.
-        $submission = $assignment->submission()->firstOrCreate([
+        // Start is implicit when the assignee submits without calling start. Reuse the
+        // existing submission: firstOrCreate() would have matched on started_at too,
+        // so a submit even one second after start created a second row.
+        $submission = $assignment->submission ?? $assignment->submission()->create([
             'submitted_by_id' => $user->getKey(),
             'started_at' => now(),
             'status' => 'in_progress',
@@ -138,22 +142,28 @@ class ChecklistExecutionController extends Controller
         abort_unless($allowed, 403);
     }
 
-    /** Direct (user) assignment, or the user holds the targeted org role. */
+    /**
+     * Direct (user) assignment, or the user holds the targeted org role. Either way the
+     * membership in the checklist's company must still be active.
+     */
     private function targetsUser(User $user, ChecklistAssignment $assignment): bool
     {
+        $companyId = $assignment->checklist->company_id;
+
+        if (! $user->activeCompanyIds()->contains($companyId)) {
+            return false;
+        }
+
         return match ($assignment->assignee_type) {
             GranteeType::User => $assignment->assignee_id === $user->getKey(),
-            GranteeType::OrgRole => $this->roleIdsFor($user)->contains($assignment->assignee_id),
+            GranteeType::OrgRole => $user->activeOrgRoleIds($companyId)->contains($assignment->assignee_id),
         };
     }
 
-    /** The user's org roles, mirroring AccessGrant::scopeForUser. */
+    /** @return Collection<int, int> */
     private function roleIdsFor(User $user): Collection
     {
-        return MembershipRole::query()
-            ->whereNull('revoked_at')
-            ->whereHas('membership', fn (Builder $query) => $query->where('user_id', $user->getKey()))
-            ->pluck('org_role_id');
+        return $user->activeOrgRoleIds();
     }
 
     private function validateAnswer(ChecklistQuestion $question, array $answer): void

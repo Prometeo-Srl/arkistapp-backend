@@ -21,6 +21,11 @@ class SubscriptionController extends Controller
 
         $subscription = $company->subscriptions()->with('plan')->latest()->first();
 
+        // A company that never subscribed is the normal initial state, not an error.
+        if (! $subscription) {
+            return response()->json(['data' => null]);
+        }
+
         return new SubscriptionResource($subscription);
     }
 

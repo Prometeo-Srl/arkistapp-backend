@@ -118,7 +118,11 @@ class FileController extends Controller
         abort_unless($version, 404, 'File has no version.');
         abort_unless(Storage::exists($version->storage_path), 404);
 
-        return Storage::response($version->storage_path, $file->name);
+        // Never inline: an uploaded document must not be rendered on the API origin,
+        // where the caller's Sanctum token lives.
+        return Storage::download($version->storage_path, $file->name, [
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /** Metadata only: expires_at is recalculated by the model, never accepted here. */
