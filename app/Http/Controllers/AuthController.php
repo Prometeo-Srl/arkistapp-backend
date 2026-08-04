@@ -12,12 +12,11 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-
     public function login(LoginRequest $request)
     {
         $user = User::where('email', $request->validated('email'))->first();
 
-        if (!$user || !Hash::check($request->validated('password'), $user->password)) {
+        if (! $user || ! Hash::check($request->validated('password'), $user->password)) {
             throw ValidationException::withMessages(['email' => ['The provided credentials are incorrect']]);
         }
 
@@ -28,6 +27,11 @@ class AuthController extends Controller
             'user' => new UserResource($user),
         ]);
 
+    }
+
+    public function me(Request $request)
+    {
+        return new UserResource($request->user());
     }
 
     public function logout(Request $request)

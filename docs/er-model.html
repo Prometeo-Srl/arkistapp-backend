@@ -1,0 +1,906 @@
+<title>Prometeo — ER model</title>
+
+<style>
+  :root {
+    --ground: #eef1f2;
+    --panel: #ffffff;
+    --ink: #12181d;
+    --muted: #5d6b70;
+    --rule: #c9d2d4;
+    --accent: #0f5d64;
+    --accent-soft: #d8e6e6;
+    --signal: #96620a;
+    --signal-soft: #f0e4cb;
+
+    --serif: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+    --step-0: 0.9375rem;
+    --step-1: 1.0625rem;
+    --step-2: 1.375rem;
+    --step-3: 1.875rem;
+    --step-4: 2.5rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0e1417;
+      --panel: #161e22;
+      --ink: #e4eaec;
+      --muted: #94a5aa;
+      --rule: #2b383d;
+      --accent: #4fb3ba;
+      --accent-soft: #173235;
+      --signal: #d9a441;
+      --signal-soft: #33290f;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0e1417;
+    --panel: #161e22;
+    --ink: #e4eaec;
+    --muted: #94a5aa;
+    --rule: #2b383d;
+    --accent: #4fb3ba;
+    --accent-soft: #173235;
+    --signal: #d9a441;
+    --signal-soft: #33290f;
+  }
+
+  :root[data-theme="light"] {
+    --ground: #eef1f2;
+    --panel: #ffffff;
+    --ink: #12181d;
+    --muted: #5d6b70;
+    --rule: #c9d2d4;
+    --accent: #0f5d64;
+    --accent-soft: #d8e6e6;
+    --signal: #96620a;
+    --signal-soft: #f0e4cb;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: var(--step-0);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1rem, 3vw, 2rem) 5rem;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding-bottom: 1.75rem;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: var(--step-4);
+    line-height: 1.1;
+    font-weight: 600;
+    text-wrap: balance;
+    letter-spacing: -0.015em;
+  }
+
+  .standfirst {
+    max-width: 64ch;
+    font-size: var(--step-1);
+    color: var(--muted);
+  }
+
+  .counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .count {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--panel);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .count b {
+    font-size: 0.9375rem;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- layout ---------- */
+
+  .cols {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    margin-top: 2.5rem;
+  }
+
+  @media (min-width: 60rem) {
+    .cols { grid-template-columns: 13rem 1fr; gap: 3rem; }
+    nav.index { position: sticky; top: 1.5rem; align-self: start; }
+  }
+
+  nav.index ol {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    border-left: 1px solid var(--rule);
+  }
+
+  nav.index a {
+    display: block;
+    padding: 0.3rem 0 0.3rem 0.75rem;
+    margin-left: -1px;
+    border-left: 2px solid transparent;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  nav.index a:hover,
+  nav.index a:focus-visible {
+    color: var(--ink);
+    border-left-color: var(--accent);
+  }
+
+  nav.index .n {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--accent);
+    display: block;
+    letter-spacing: 0.08em;
+  }
+
+  main { display: flex; flex-direction: column; gap: 3.5rem; min-width: 0; }
+
+  section { display: flex; flex-direction: column; gap: 1rem; scroll-margin-top: 1.5rem; }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: var(--step-3);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 0.5rem;
+  }
+
+  p { max-width: 68ch; }
+
+  a { color: var(--accent); }
+
+  code, .m {
+    font-family: var(--mono);
+    font-size: 0.8125em;
+    background: var(--accent-soft);
+    padding: 0.1em 0.35em;
+    border-radius: 2px;
+    word-break: break-word;
+  }
+
+  /* ---------- diagram panels ---------- */
+
+  .figure {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .figure > pre.mermaid {
+    overflow-x: auto;
+    padding: 1.25rem;
+    margin: 0;
+    background: var(--panel);
+  }
+
+  .figure figcaption {
+    padding: 0.6rem 1rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* ---------- tables ---------- */
+
+  .scroller { overflow-x: auto; border: 1px solid var(--rule); border-radius: 2px; background: var(--panel); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
+
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.85rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  thead th {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+    background: var(--ground);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.key { font-family: var(--mono); font-size: 0.8125rem; white-space: nowrap; }
+
+  /* ---------- notes ---------- */
+
+  .note {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.85rem 1rem;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+  }
+
+  .note.warn { border-left-color: var(--signal); background: var(--signal-soft); }
+
+  .note .label {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .note p { max-width: 72ch; margin: 0; }
+
+  ul.plain { display: flex; flex-direction: column; gap: 0.5rem; padding-left: 1.1rem; }
+
+  ul.plain li { max-width: 68ch; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--rule);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="eyebrow">Prometeo platform · data schema</span>
+    <h1>ER model</h1>
+    <p class="standfirst">
+      Seven domains, thirty-three entities. Derived from the technical specification, from both
+      XD prototypes (317 company screens, 110 worker screens) and from the role-structure notes.
+      One diagram per domain, because a single graph of thirty-three entities cannot be read.
+    </p>
+    <div class="counts">
+      <span class="count"><b>33</b> entities</span>
+      <span class="count"><b>8</b> migrations</span>
+      <span class="count"><b>32</b> models</span>
+      <span class="count"><b>16</b> enums</span>
+      <span class="count">Postgres 18 · Laravel 13</span>
+    </div>
+  </header>
+
+  <div class="cols">
+
+    <nav class="index" aria-label="Domain index">
+      <ol>
+        <li><a href="#mappa"><span class="n">Orientation</span>Map of the domains</a></li>
+        <li><a href="#tenancy"><span class="n">Domain</span>Tenancy and identity</a></li>
+        <li><a href="#ruoli"><span class="n">Domain</span>Roles and subscriptions</a></li>
+        <li><a href="#archivio"><span class="n">Domain</span>Document archive</a></li>
+        <li><a href="#accessi"><span class="n">Domain</span>Sharing and acknowledgements</a></li>
+        <li><a href="#checklist"><span class="n">Domain</span>Checklists</a></li>
+        <li><a href="#infortuni"><span class="n">Domain</span>Incidents and reports</a></li>
+        <li><a href="#attivita"><span class="n">Domain</span>Activities, notifications, audit</a></li>
+        <li><a href="#assistenza"><span class="n">Domain</span>Support</a></li>
+        <li><a href="#aperti"><span class="n">To decide</span>Open questions</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <section id="mappa">
+        <h2>Map of the domains</h2>
+        <p>
+          Every domain hangs off <code>companies</code>: it is the tenant root and the hinge of
+          data isolation. <code>users</code> crosses it from the outside, because one person can
+          belong to several tenants at once.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+flowchart LR
+    U["users<br/>people"]
+    C(["companies<br/>tenant root"])
+    S["Roles and<br/>subscriptions"]
+    D["Document<br/>archive"]
+    K["Checklists"]
+    I["Incidents and<br/>reports"]
+    A["Activities,<br/>notifications, audit"]
+    H["Support"]
+
+    U -->|company_memberships| C
+    C --> S
+    C --> D
+    C --> K
+    C --> I
+    C --> A
+    C --> H
+    U -.->|assignee, author, recipient| A
+</pre>
+          <figcaption>Solid lines: tenant membership. Dashed: references to the person.</figcaption>
+        </figure>
+        <div class="note">
+          <span class="label">Diagram conventions</span>
+          <p>
+            <code>||--o{</code> one to many · <code>}o--o|</code> optional zero-or-one ·
+            <code>||--o|</code> one to zero-or-one. Names are table names, not model names.
+          </p>
+        </div>
+      </section>
+
+      <section id="tenancy">
+        <h2>Tenancy and identity</h2>
+        <p>
+          One <code>users</code> table for everyone: super admins, company owners and workers.
+          A role is not a property of the person but of their <em>relationship</em> with a
+          tenant, and it lives on <code>company_memberships</code>.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ COMPANY_MEMBERSHIPS : has
+    USERS ||--o{ COMPANY_MEMBERSHIPS : belongs_to
+    COMPANY_MEMBERSHIPS ||--o{ MEMBERSHIP_ROLES : holds
+    ORG_ROLES ||--o{ MEMBERSHIP_ROLES : types
+    COMPANIES ||--o{ INVITATIONS : sends
+    INVITATIONS }o--o| ORG_ROLES : proposes
+    INVITATIONS }o--o| USERS : accepted_by
+    COMPANIES }o--o| USERS : registered_by
+    COMPANIES ||--o| BRANDING_SETTINGS : themed_by
+    COMPANIES ||--o{ IMPORT_BATCHES : imports
+
+    COMPANIES {
+        string kind "business | personal"
+        bigint owner_user_id "who registered it"
+        string status
+    }
+    COMPANY_MEMBERSHIPS {
+        string status "invited | active | archived"
+        boolean is_admin "application permission"
+        string department
+    }
+    ORG_ROLES {
+        string code "D.Lgs 81/08"
+        boolean is_unique_per_company
+    }
+    INVITATIONS {
+        string email
+        string token
+        timestamp accepted_at
+    }
+</pre>
+          <figcaption>The personal workspace is a companies row with kind = personal.</figcaption>
+        </figure>
+
+        <h3>Two permission axes, kept apart</h3>
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr><th>Axis</th><th>Where it lives</th><th>What it decides</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="key">org_roles</td>
+                <td class="key">membership_roles</td>
+                <td>Safety roles under D.Lgs 81/08: employer, RSPP, ASPP, occupational physician, RLS, manager, supervisor, worker. Nine entries, static seed, with appointment and revocation dates.</td>
+              </tr>
+              <tr>
+                <td class="key">is_admin</td>
+                <td class="key">company_memberships</td>
+                <td>Application permission: invites, associates, manages collaborators' permissions. Whoever registers the company is an administrator even when they are not the employer.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">
+          <span class="label">Why not one single role field</span>
+          <p>
+            The two sets change for different reasons. Safety roles are dictated by company
+            appointments and by law; account administration is decided by whoever pays. A
+            supervisor is not an administrator by virtue of the appointment, and an administrator
+            may hold no org chart role at all.
+          </p>
+        </div>
+      </section>
+
+      <section id="ruoli">
+        <h2>Roles and subscriptions</h2>
+        <p>
+          Four roles come from the notes. The knot is the unassociated worker: they sign up on
+          their own and pay for a personal plan, and once they join a company that is already
+          subscribed they must not pay anything further.
+        </p>
+
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr><th>Role</th><th>How it is modelled</th><th>What covers the access</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Super admin</td>
+                <td class="key">users.type = prometeo_operator</td>
+                <td>No subscription: bypasses the tenant scope</td>
+              </tr>
+              <tr>
+                <td>Company</td>
+                <td class="key">companies.kind = business<br>+ membership is_admin</td>
+                <td>Its own workspace subscription</td>
+              </tr>
+              <tr>
+                <td>Associated worker</td>
+                <td class="key">active membership<br>on a business workspace</td>
+                <td>The company subscription</td>
+              </tr>
+              <tr>
+                <td>Unassociated worker</td>
+                <td class="key">companies.kind = personal<br>owner_user_id = them</td>
+                <td>The personal workspace subscription</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    PLANS ||--o{ SUBSCRIPTIONS : instantiates
+    COMPANIES ||--o{ SUBSCRIPTIONS : subscribes
+    SUBSCRIPTIONS ||--o{ PAYMENTS : billed_by
+    SUBSCRIPTIONS }o--o| SUBSCRIPTIONS : absorbed_by
+
+    PLANS {
+        string code "free | premium_monthly | premium_yearly"
+        integer price_cents
+        json features
+    }
+    SUBSCRIPTIONS {
+        string status "trialing active past_due canceled superseded"
+        bigint superseded_by_id "what covers it now"
+        timestamp current_period_end
+    }
+</pre>
+          <figcaption>A subscription always hangs off a workspace, company or personal.</figcaption>
+        </figure>
+
+        <h3>Company subscription taking over</h3>
+        <figure class="figure">
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> None: worker signs up on their own
+    None --> Personal: subscribes to an individual plan
+    Personal --> Absorbed: joins a company with an active subscription
+    None --> CoveredByCompany: invited by a subscribed company
+    Absorbed --> [*]
+    CoveredByCompany --> [*]
+
+    Personal: Personal plan active
+    Absorbed: Personal plan superseded
+    CoveredByCompany: Covered by the company
+</pre>
+          <figcaption>The transition is applied by CompanyMembershipObserver, not by a controller.</figcaption>
+        </figure>
+
+        <div class="note">
+          <span class="label">Coverage rule, one single query</span>
+          <p>
+            At least one active workspace of the user — personal or company — holds a subscription
+            in state <code>trialing</code>, <code>active</code> or <code>past_due</code>.
+            No hierarchy of cases to keep aligned by hand.
+          </p>
+        </div>
+
+        <div class="note warn">
+          <span class="label">Deliberately not implemented</span>
+          <p>
+            Reactivating the individual plan when the worker leaves the company. The notes do not
+            ask for it and it touches a payment, so the decision belongs to the client. The data
+            needed is already there — <code>superseded_by_id</code> records which subscription
+            absorbed which.
+          </p>
+        </div>
+      </section>
+
+      <section id="archivio">
+        <h2>Document archive</h2>
+        <p>
+          Three levels, as in the prototypes: category, folder, file. Folders nest. Every file
+          keeps its successive versions, and the expiry date is not typed in — the document type
+          computes it.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ CATEGORIES : owns
+    CATEGORIES ||--o{ FOLDERS : contains
+    FOLDERS ||--o{ FOLDERS : nests
+    FOLDERS ||--o{ FILES : contains
+    FILES ||--o{ FILE_VERSIONS : versions
+    DOCUMENT_TYPES ||--o{ FILES : classifies
+    FOLDERS }o--o| USERS : personal_folder_of
+    FILES }o--o| FILE_VERSIONS : current_version
+
+    DOCUMENT_TYPES {
+        string code "attestato_antincendio"
+        smallint validity_months "60"
+        json reminder_offsets "180 60 15 days"
+    }
+    FILES {
+        string media_kind "document image audio video"
+        date issued_at
+        date expires_at "derived"
+        boolean requires_acknowledgement
+    }
+    FILE_VERSIONS {
+        integer version_no
+        string checksum
+        string replaced_reason
+    }
+</pre>
+          <figcaption>The prototype's history screen is file_versions; unique on (file_id, version_no).</figcaption>
+        </figure>
+        <div class="note">
+          <span class="label">Dynamic expiry dates</span>
+          <p>
+            <code>expires_at = issued_at + document_types.validity_months</code>, recalculated on
+            every save of the file — so it holds for the bulk certificate import too, not only for
+            manual uploads. An expiry date set by hand is never overwritten. Fire safety 60 months,
+            first aid 36, supervisor refresher 24, medical examination 12.
+          </p>
+        </div>
+      </section>
+
+      <section id="accessi">
+        <h2>Sharing and acknowledgements</h2>
+        <p>
+          A single table carries all the sharing in the prototypes: what gets shared is polymorphic
+          (category, folder or file), and the recipient can be a person or an org chart role —
+          "share with every supervisor" without any group tables.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    CATEGORIES ||--o{ ACCESS_GRANTS : scope
+    FOLDERS ||--o{ ACCESS_GRANTS : scope
+    FILES ||--o{ ACCESS_GRANTS : scope
+    ACCESS_GRANTS }o--|| USERS : to_person
+    ACCESS_GRANTS }o--|| ORG_ROLES : to_role
+    FILES ||--o{ ACKNOWLEDGEMENTS : requires
+    FILE_VERSIONS ||--o{ ACKNOWLEDGEMENTS : refers_to
+    USERS ||--o{ ACKNOWLEDGEMENTS : confirms
+
+    ACCESS_GRANTS {
+        string grantable_type "category folder file"
+        string grantee_type "user | org_role"
+        string permission "viewer custodian editor"
+        timestamp expires_at
+    }
+    ACKNOWLEDGEMENTS {
+        timestamp viewed_at
+        timestamp confirmed_at
+        string ip_address
+    }
+</pre>
+          <figcaption>grantable_type stores stable aliases (file), not PHP class names.</figcaption>
+        </figure>
+
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr><th>Permission</th><th>Reads and downloads</th><th>Manages expiry and versions</th><th>Writes and deletes</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="key">viewer</td><td>yes</td><td>no</td><td>no</td></tr>
+              <tr><td class="key">custodian</td><td>yes</td><td>yes</td><td>no</td></tr>
+              <tr><td class="key">editor</td><td>yes</td><td>yes</td><td>yes</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note">
+          <span class="label">The levels are enforced, not just recorded</span>
+          <p>
+            Every write path resolves the strongest grant covering the file, walking up from
+            the file to its folder chain and category, so a grant on a category reaches the
+            files beneath it. Grants only ever add access: a member of the company already
+            reads its shared archive, and the owner of a personal folder always manages
+            their own branch.
+          </p>
+        </div>
+
+        <div class="note">
+          <span class="label">Acknowledgement bound to the version</span>
+          <p>
+            The unique constraint is on <code>(file_version_id, user_id)</code>, not on
+            <code>(file_id, user_id)</code>: a new version of the document requires a new
+            confirmation. This is the point where the traceability the specification asks for
+            actually survives an external inspection.
+          </p>
+        </div>
+      </section>
+
+      <section id="checklist">
+        <h2>Checklists</h2>
+        <p>
+          The company prototype spends more than forty screens on the checklist builder: sections,
+          questions of seven types, options with images, drag &amp; drop reordering. Structure and
+          submissions sit on separate branches.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ CHECKLISTS : owns
+    CHECKLISTS ||--o{ CHECKLIST_SECTIONS : has
+    CHECKLIST_SECTIONS ||--o{ CHECKLIST_QUESTIONS : has
+    CHECKLIST_QUESTIONS ||--o{ CHECKLIST_OPTIONS : offers
+    CHECKLISTS ||--o{ CHECKLIST_ASSIGNMENTS : assigned
+    CHECKLIST_ASSIGNMENTS ||--o| CHECKLIST_SUBMISSIONS : produces
+    CHECKLIST_SUBMISSIONS ||--o{ CHECKLIST_ANSWERS : contains
+    CHECKLIST_QUESTIONS ||--o{ CHECKLIST_ANSWERS : answered_by
+
+    CHECKLISTS {
+        string status "draft published archived"
+        string frequency "weekly monthly semiannual annual"
+    }
+    CHECKLIST_QUESTIONS {
+        string type "single_choice multi_choice text date time image number"
+        boolean is_required
+        smallint position
+    }
+    CHECKLIST_OPTIONS {
+        string image_path
+        boolean is_non_conformity
+    }
+    CHECKLIST_ASSIGNMENTS {
+        string assignee_type "user | org_role"
+        string status "pending in_progress completed expired"
+    }
+</pre>
+          <figcaption>Drag &amp; drop rewrites (checklist_section_id, position).</figcaption>
+        </figure>
+        <p>
+          <code>is_non_conformity</code> on the option is the hook needed later: it is what turns a
+          submitted answer into an automatically detected non-conformity, with no need to re-read
+          the answer text.
+        </p>
+      </section>
+
+      <section id="infortuni">
+        <h2>Incidents and reports</h2>
+        <p>
+          One entity for near misses and injuries alike: the same fields, the same review, separate
+          lists in the interface. The prototypes' forty-day threshold is not a convenience filter,
+          it is the split the register requires.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ INCIDENT_REPORTS : registers
+    USERS }o--o| INCIDENT_REPORTS : reported_by
+    INCIDENT_REPORTS ||--o{ INCIDENT_ATTACHMENTS : documents
+
+    INCIDENT_REPORTS {
+        string kind "near_miss | injury"
+        boolean is_anonymous
+        bigint reported_by_id "NULL when anonymous"
+        smallint absence_days
+        string severity_bucket "from the 40-day threshold"
+        string status "draft submitted under_review closed"
+    }
+</pre>
+          <figcaption>severity_bucket and anonymity are derived on save, never taken from input.</figcaption>
+        </figure>
+        <div class="note warn">
+          <span class="label">Anonymity enforced in the model</span>
+          <p>
+            With <code>is_anonymous</code> set, <code>reported_by_id</code> is cleared before the
+            write rather than hidden on read. The specification promises the worker an anonymous
+            report: if the identity reached the database, that promise would depend on every future
+            query remembering to exclude the column.
+          </p>
+        </div>
+      </section>
+
+      <section id="attivita">
+        <h2>Activities, notifications, audit</h2>
+        <p>
+          "Monitora attività" is the screen both prototypes filter and paginate. It is a
+          materialized table rather than a view: the data would be derivable, but sorting and
+          filtering across three different sources is not worth paying for on every open.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ ACTIVITIES : tracks
+    USERS ||--o{ ACTIVITIES : assigned_to
+    USERS ||--o{ NOTIFICATIONS : receives
+    USERS ||--o{ AUDIT_LOGS : performs
+
+    ACTIVITIES {
+        string kind "read_document fill_checklist renew_certificate"
+        string subject_type "file checklist_assignment incident_report"
+        string status "todo done overdue"
+        timestamp due_at
+    }
+    NOTIFICATIONS {
+        uuid id
+        string channel "push email in_app"
+        json data
+        timestamp read_at
+    }
+    AUDIT_LOGS {
+        string action
+        string auditable_type
+        json changes
+        string ip_address
+    }
+</pre>
+          <figcaption>notifications reuses Laravel's DatabaseNotification schema.</figcaption>
+        </figure>
+        <ul class="plain">
+          <li>
+            <b>Three sources, one list:</b> a missing acknowledgement, an assigned checklist, an
+            expiring certificate. The <code>subject_type</code> column says which.
+          </li>
+          <li>
+            <b>Notifications:</b> schema aligned with <code>DatabaseNotification</code>, so
+            Laravel's <code>database</code> channel works with no custom layer, plus the domain
+            columns (tenant, channel, subject).
+          </li>
+          <li>
+            <b>Audit:</b> the specification requires every upload, change and access to be tracked.
+            <code>changes</code> keeps the delta, not just the fact.
+          </li>
+        </ul>
+      </section>
+
+      <section id="assistenza">
+        <h2>Support</h2>
+        <p>
+          Chat, email and call are the same thread on different channels. A call leaves the
+          metadata only: the prototype opens the system dialer, so the telephony never goes
+          through the platform.
+        </p>
+        <figure class="figure">
+<pre class="mermaid">
+erDiagram
+    COMPANIES ||--o{ SUPPORT_THREADS : opens
+    USERS ||--o{ SUPPORT_THREADS : participates
+    SUPPORT_THREADS ||--o{ SUPPORT_MESSAGES : contains
+    SUPPORT_MESSAGES ||--o{ SUPPORT_ATTACHMENTS : carries
+    PROMETEO_CONTACTS }o--o| USERS : profile_of
+
+    SUPPORT_THREADS {
+        string channel "chat | email | call"
+        bigint assigned_operator_id
+        string status "open pending closed"
+    }
+    SUPPORT_MESSAGES {
+        string kind "text image video audio file call_log"
+        integer call_duration_seconds
+        timestamp read_at
+    }
+    PROMETEO_CONTACTS {
+        string display_name
+        string role_label
+        boolean is_visible
+    }
+</pre>
+          <figcaption>prometeo_contacts is global: the staff directory belongs to no tenant.</figcaption>
+        </figure>
+      </section>
+
+      <section id="aperti">
+        <h2>Open questions</h2>
+        <p>
+          Three decisions still belong to the client, plus one already settled. None of them needs
+          a schema change: they are product choices, and the model holds either answer.
+        </p>
+        <div class="scroller">
+          <table>
+            <thead>
+              <tr><th>Question</th><th>The conflict</th><th>What changes</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Reactivating the individual plan</td>
+                <td>A worker leaves the company: does their personal plan come back, or must it be re-subscribed?</td>
+                <td>A job. The data already sits in <code>superseded_by_id</code></td>
+              </tr>
+              <tr>
+                <td>Acknowledgement signature</td>
+                <td>The prototypes only show a tap confirmation</td>
+                <td><code>signature_path</code> stays nullable</td>
+              </tr>
+              <tr>
+                <td>One user across several companies</td>
+                <td>"Cambio profilo" implies an external consultant following more than one company</td>
+                <td>Already modelled; confirm it as a requirement</td>
+              </tr>
+              <tr>
+                <td>Worker permissions — <b>settled</b></td>
+                <td>The specification grants read-only access; the worker prototype has folder creation and file upload</td>
+                <td>The prototypes win. Policy only: the worker manages their own personal branch, read-only elsewhere</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note warn">
+          <span class="label">The specification contradicts itself</span>
+          <p>
+            The same document states that clients get "accesso in lettura e scrittura ai propri
+            documenti" and, a few lines below, that a client "non avrà alcuna possibilità di
+            modifica dei contenuti". The prototypes are more recent and show full write access,
+            and the client has confirmed the prototypes take precedence.
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <span>Full field reference: <code>docs/er-model.md</code> in the repository.</span>
+        <span>Sources: Prometeo technical specification (Allegato 1), company and worker XD prototypes, role-structure notes.</span>
+      </footer>
+
+    </main>
+  </div>
+</div>

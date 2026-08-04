@@ -1,13 +1,11 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use Illuminate\Support\Facades\Route;
-
-Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
-
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/me', [AuthController::class, 'me']);
-        Route::post('/logout', [AuthController::class, 'logout']);
-    });
-});
+// api.php is pure wiring: every route group lives in routes/slices/*.php.
+require __DIR__.'/slices/auth.php';
+require __DIR__.'/slices/catalog.php';
+require __DIR__.'/slices/tenancy.php';
+require __DIR__.'/slices/documents.php';
+require __DIR__.'/slices/checklists.php';
+require __DIR__.'/slices/incidents.php';
+require __DIR__.'/slices/support.php';
+require __DIR__.'/slices/monitor.php';
