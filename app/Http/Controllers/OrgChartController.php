@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\MembershipStatus;
 use App\Enums\UserType;
+use App\Http\Requests\StoreOrgChartRequest;
 use App\Http\Requests\UpdateOrgChartRoleRequest;
 use App\Models\Company;
 use App\Models\CompanyMembership;
@@ -55,52 +56,95 @@ class OrgChartController extends Controller
     }
 
     /**
-     * One role's entries, saved by "salva e continua". The submitted list replaces
-     * what was there: anyone dropped from it has the appointment revoked.
+     * The whole chart at once, from "conferma e concludi". One transaction, so an
+     * invalid role part-way through leaves no accounts behind.
+     */
+    public function store(StoreOrgChartRequest $request, Company $company)
+    {
+        $this->authorize('manageMembers', $company);
+
+        $data = $request->validated();
+        $roles = OrgRole::query()
+            ->whereIn('code', array_column($data['roles'], 'code'))
+            ->get()
+            ->keyBy('code');
+
+        DB::transaction(function () use ($request, $company, $data, $roles) {
+            if (($data['size_band'] ?? null) !== null) {
+                $company->update(['size_band' => $data['size_band']]);
+            }
+
+            foreach ($data['roles'] as $role) {
+                $this->syncRole(
+                    $company,
+                    $roles[$role['code']],
+                    $role['entries'],
+                    $request->user(),
+                );
+            }
+        });
+
+        return $this->show($request, $company->refresh());
+    }
+
+    /**
+     * One role on its own, for editing the chart once it exists ("Organigramma").
+     * The submitted list replaces what was there: anyone dropped from it has the
+     * appointment revoked.
      */
     public function update(UpdateOrgChartRoleRequest $request, Company $company, OrgRole $orgRole)
     {
         $this->authorize('manageMembers', $company);
 
-        $entries = $request->validated()['entries'];
-
-        DB::transaction(function () use ($request, $company, $orgRole, $entries) {
-            $keptMembershipIds = [];
-
-            foreach ($entries as $entry) {
-                $membership = ($entry['is_me'] ?? false)
-                    ? $this->ownMembership($company, $request->user())
-                    : $this->rosterMembership($company, $entry, $request->user());
-
-                MembershipRole::updateOrCreate(
-                    [
-                        'company_membership_id' => $membership->getKey(),
-                        'org_role_id' => $orgRole->getKey(),
-                    ],
-                    [
-                        'is_territorial' => (bool) ($entry['is_territorial'] ?? false),
-                        'appointed_at' => now()->toDateString(),
-                        // Re-appointing someone previously removed clears the revocation
-                        // rather than inserting a second row: the pair is unique.
-                        'revoked_at' => null,
-                    ],
-                );
-
-                $keptMembershipIds[] = $membership->getKey();
-            }
-
-            MembershipRole::query()
-                ->where('org_role_id', $orgRole->getKey())
-                ->whereNull('revoked_at')
-                ->whereNotIn('company_membership_id', $keptMembershipIds)
-                ->whereIn(
-                    'company_membership_id',
-                    $company->memberships()->select('id'),
-                )
-                ->update(['revoked_at' => now()->toDateString()]);
-        });
+        DB::transaction(fn () => $this->syncRole(
+            $company,
+            $orgRole,
+            $request->validated()['entries'],
+            $request->user(),
+        ));
 
         return $this->show($request, $company->refresh());
+    }
+
+    /**
+     * Make this company's appointments to $orgRole match $entries exactly.
+     *
+     * @param  array<int, array<string, mixed>>  $entries
+     */
+    private function syncRole(Company $company, OrgRole $orgRole, array $entries, User $actor): void
+    {
+        $keptMembershipIds = [];
+
+        foreach ($entries as $entry) {
+            $membership = ($entry['is_me'] ?? false)
+                ? $this->ownMembership($company, $actor)
+                : $this->rosterMembership($company, $entry, $actor);
+
+            MembershipRole::updateOrCreate(
+                [
+                    'company_membership_id' => $membership->getKey(),
+                    'org_role_id' => $orgRole->getKey(),
+                ],
+                [
+                    'is_territorial' => (bool) ($entry['is_territorial'] ?? false),
+                    'appointed_at' => now()->toDateString(),
+                    // Re-appointing someone previously removed clears the revocation
+                    // rather than inserting a second row: the pair is unique.
+                    'revoked_at' => null,
+                ],
+            );
+
+            $keptMembershipIds[] = $membership->getKey();
+        }
+
+        MembershipRole::query()
+            ->where('org_role_id', $orgRole->getKey())
+            ->whereNull('revoked_at')
+            ->whereNotIn('company_membership_id', $keptMembershipIds)
+            // Scoped to this company: another tenant's appointment to the same
+            // role is none of our business.
+            ->whereIn('company_membership_id', $company->memberships()->select('id'))
+            ->update(['revoked_at' => now()->toDateString()]);
     }
 
     /** The signed-in admin's own membership, for the "sono io" checkbox. */

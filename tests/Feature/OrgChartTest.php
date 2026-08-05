@@ -57,6 +57,94 @@ class OrgChartTest extends TestCase
         );
     }
 
+    private function postChart(array $payload)
+    {
+        return $this->postJson(
+            "/api/companies/{$this->company->getKey()}/org-chart",
+            $payload,
+        );
+    }
+
+    public function test_conferma_e_concludi_saves_the_band_and_every_role_at_once(): void
+    {
+        $response = $this->postChart([
+            'size_band' => 'piccola',
+            'roles' => [
+                ['code' => 'rspp', 'entries' => [['is_me' => true]]],
+                [
+                    'code' => 'rls',
+                    'entries' => [
+                        ['name' => 'Rep', 'email' => 'rep@example.com', 'is_territorial' => true],
+                    ],
+                ],
+                ['code' => 'preposto', 'entries' => []],
+            ],
+        ]);
+
+        $response->assertOk()->assertJsonPath('size_band', 'piccola');
+        $this->assertSame(CompanySizeBand::Piccola, $this->company->fresh()->size_band);
+
+        $this->assertTrue(
+            $this->admin->activeOrgRoleIds($this->company->getKey())
+                ->contains($this->orgRole('rspp')->getKey()),
+        );
+
+        $rls = MembershipRole::where('org_role_id', $this->orgRole('rls')->getKey())->sole();
+        $this->assertTrue($rls->is_territorial);
+    }
+
+    /**
+     * The reason the whole chart is submitted at once: a half-filled form must
+     * not leave accounts behind for people who were never confirmed.
+     */
+    public function test_nothing_is_written_when_any_role_in_the_submission_is_invalid(): void
+    {
+        $this->postChart([
+            'size_band' => 'grande',
+            'roles' => [
+                ['code' => 'rspp', 'entries' => [['name' => 'Fine', 'email' => 'fine@example.com']]],
+                // Unique per company, so two entries is a validation failure.
+                [
+                    'code' => 'datore_lavoro_secondario',
+                    'entries' => [
+                        ['name' => 'One', 'email' => 'one@example.com'],
+                        ['name' => 'Two', 'email' => 'two@example.com'],
+                    ],
+                ],
+            ],
+        ])->assertUnprocessable();
+
+        $this->assertSame(1, User::count(), 'Only the admin may exist.');
+        $this->assertNull($this->company->fresh()->size_band);
+        $this->assertSame(0, MembershipRole::count());
+    }
+
+    public function test_it_rejects_the_same_role_submitted_twice(): void
+    {
+        $this->postChart([
+            'roles' => [
+                ['code' => 'rspp', 'entries' => [['name' => 'A', 'email' => 'a@example.com']]],
+                ['code' => 'rspp', 'entries' => [['name' => 'B', 'email' => 'b@example.com']]],
+            ],
+        ])->assertUnprocessable()->assertJsonValidationErrors('roles');
+
+        $this->assertSame(1, User::count());
+    }
+
+    public function test_it_rejects_an_unknown_role_code(): void
+    {
+        $this->postChart([
+            'roles' => [['code' => 'capo_supremo', 'entries' => []]],
+        ])->assertUnprocessable()->assertJsonValidationErrors('roles.0.code');
+    }
+
+    public function test_skipping_step_one_leaves_the_band_unset(): void
+    {
+        $this->postChart(['roles' => []])->assertOk();
+
+        $this->assertNull($this->company->fresh()->size_band);
+    }
+
     public function test_it_rosters_a_person_without_giving_them_any_access_yet(): void
     {
         $this->putRole('rspp', [
@@ -270,6 +358,7 @@ class OrgChartTest extends TestCase
 
         $this->getJson("/api/companies/{$this->company->getKey()}/org-chart")->assertOk();
         $this->putRole('rspp', [['name' => 'X', 'email' => 'x@example.com']])->assertForbidden();
+        $this->postChart(['roles' => []])->assertForbidden();
     }
 
     public function test_an_outsider_cannot_touch_the_org_chart(): void
@@ -278,6 +367,7 @@ class OrgChartTest extends TestCase
 
         $this->getJson("/api/companies/{$this->company->getKey()}/org-chart")->assertForbidden();
         $this->putRole('rspp', [['name' => 'X', 'email' => 'x@example.com']])->assertForbidden();
+        $this->postChart(['roles' => []])->assertForbidden();
     }
 
     public function test_it_does_not_revoke_appointments_belonging_to_another_company(): void

@@ -33,6 +33,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // parameter otherwise makes Laravel resolve {orgRole:code} through the parent:
     // org roles are global reference data, so Company has no relation to scope through.
     Route::get('/companies/{company}/org-chart', [OrgChartController::class, 'show']);
+    // The whole chart, from "conferma e concludi".
+    Route::post('/companies/{company}/org-chart', [OrgChartController::class, 'store']);
+    // A single role, for editing the chart later.
     Route::put('/companies/{company}/org-chart/{orgRole:code}', [OrgChartController::class, 'update'])
         ->withoutScopedBindings();
 
