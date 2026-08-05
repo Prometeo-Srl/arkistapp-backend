@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: composer
+    directory: /
+    # Repo default is main, but develop is the active branch — PRs must land there.
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Patch/minor land as one PR; a major needs a human reading the upgrade guide.
+    groups:
+      patches:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+
+  # Action versions get their own CVEs; keep the workflow itself patched.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday

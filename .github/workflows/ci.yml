@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+  schedule:
+    # Advisories land continuously; catch them without waiting for a push.
+    - cron: '0 6 * * 1'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      pgsql:
+        # Matches compose.yaml. phpunit.xml pins DB_DATABASE=testing, so create
+        # that database directly instead of replaying Sail's init script.
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: testing
+          POSTGRES_USER: sail
+          POSTGRES_PASSWORD: password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -q -d testing -U sail"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USERNAME: sail
+      DB_PASSWORD: password
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # compose.yaml builds the 8.5 Sail runtime — test on what we deploy.
+          php-version: '8.5'
+          extensions: pdo_pgsql, pgsql, mbstring, bcmath, intl, zip
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Code style
+        run: ./vendor/bin/pint --test
+
+      # RefreshDatabase migrates per test, so no explicit migrate step.
+      - name: Tests
+        run: php artisan test
+
+  audit:
+    runs-on: ubuntu-latest
+    # Non-blocking: a fresh advisory in a transitive package should not wall off
+    # an unrelated hotfix. Dependabot opens the PR that actually fixes it.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Security advisories
+        run: composer audit
+
+      - name: Outdated direct dependencies
+        run: composer outdated --direct || true
