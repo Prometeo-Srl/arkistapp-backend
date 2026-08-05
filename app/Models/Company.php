@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CompanySizeBand;
 use App\Enums\MembershipStatus;
 use App\Enums\SubscriptionStatus;
 use App\Enums\WorkspaceKind;
@@ -17,8 +18,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'name', 'kind', 'owner_user_id', 'vat_number', 'tax_code', 'legal_address',
-    'postal_code', 'city', 'province', 'ateco_code', 'employees_count', 'logo_path',
-    'status', 'created_by_operator_id',
+    'postal_code', 'city', 'province', 'ateco_code', 'employees_count', 'size_band',
+    'logo_path', 'status', 'created_by_operator_id',
 ])]
 class Company extends Model
 {
@@ -26,7 +27,10 @@ class Company extends Model
 
     protected function casts(): array
     {
-        return ['kind' => WorkspaceKind::class];
+        return [
+            'kind' => WorkspaceKind::class,
+            'size_band' => CompanySizeBand::class,
+        ];
     }
 
     /**

@@ -3,6 +3,7 @@
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanyMemberController;
 use App\Http\Controllers\InvitationController;
+use App\Http\Controllers\OrgChartController;
 use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +28,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/companies/{company}/invitations', [InvitationController::class, 'store']);
         Route::delete('/companies/{company}/invitations/{invitation}', [InvitationController::class, 'destroy']);
     });
+
+    // "Imposta Organigramma". withoutScopedBindings() because a custom key on a nested
+    // parameter otherwise makes Laravel resolve {orgRole:code} through the parent:
+    // org roles are global reference data, so Company has no relation to scope through.
+    Route::get('/companies/{company}/org-chart', [OrgChartController::class, 'show']);
+    Route::put('/companies/{company}/org-chart/{orgRole:code}', [OrgChartController::class, 'update'])
+        ->withoutScopedBindings();
 
     Route::get('/companies/{company}/subscription', [SubscriptionController::class, 'show']);
     Route::post('/companies/{company}/subscription', [SubscriptionController::class, 'store']);

@@ -10,6 +10,7 @@ use App\Http\Requests\RegisterCompanyRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Company;
 use App\Models\CompanyMembership;
+use App\Models\OrgRole;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -55,12 +56,22 @@ class AuthController extends Controller
 
             // Whoever registers the company administers it, regardless of the org chart
             // roles they later assign themselves in "Imposta Organigramma".
-            CompanyMembership::create([
+            $membership = CompanyMembership::create([
                 'company_id' => $company->getKey(),
                 'user_id' => $user->getKey(),
                 'status' => MembershipStatus::Active,
                 'is_admin' => true,
             ]);
+
+            // "Imposta Organigramma" step 2 starts at "secondo ddl", so the primary
+            // datore di lavoro is the person who registered: never asked for, always
+            // implied. datore_lavoro has min_required 1 and would otherwise be unmet.
+            $datoreLavoro = OrgRole::query()->where('code', 'datore_lavoro')->first();
+            if ($datoreLavoro) {
+                $membership->orgRoles()->attach($datoreLavoro->getKey(), [
+                    'appointed_at' => now()->toDateString(),
+                ]);
+            }
 
             return [$user, $company];
         });

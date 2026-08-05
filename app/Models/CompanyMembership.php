@@ -51,7 +51,9 @@ class CompanyMembership extends Pivot
 
     public function membershipRoles(): HasMany
     {
-        return $this->hasMany(MembershipRole::class);
+        // Explicit key for the same reason as orgRoles() below: on a standalone Pivot,
+        // getForeignKey() yields an empty column name and the query fails at runtime.
+        return $this->hasMany(MembershipRole::class, 'company_membership_id');
     }
 
     public function orgRoles(): BelongsToMany
@@ -59,7 +61,7 @@ class CompanyMembership extends Pivot
         // Explicit pivot keys: on a standalone Pivot, getForeignKey() cannot infer them.
         return $this->belongsToMany(OrgRole::class, 'membership_roles', 'company_membership_id', 'org_role_id')
             ->using(MembershipRole::class)
-            ->withPivot(['appointed_at', 'revoked_at', 'appointment_file_id'])
+            ->withPivot(['appointed_at', 'revoked_at', 'is_territorial', 'appointment_file_id'])
             ->withTimestamps();
     }
 }

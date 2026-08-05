@@ -13,7 +13,10 @@ class OrgRoleSeeder extends Seeder
         $roles = [
             ['code' => 'datore_lavoro', 'label' => 'Datore di lavoro', 'is_unique_per_company' => true, 'min_required' => 1],
             ['code' => 'datore_lavoro_secondario', 'label' => 'Secondo datore di lavoro', 'is_unique_per_company' => true],
-            ['code' => 'rspp', 'label' => 'RSPP', 'is_unique_per_company' => true, 'min_required' => 1],
+            // Not unique: "inserisci RSPP" offers "+ aggiungi" and the prototype shows two
+            // entries, where "inserisci secondo DDL" deliberately offers neither. Flip this
+            // back if the client confirms D.Lgs 81/08 allows only one RSPP appointment.
+            ['code' => 'rspp', 'label' => 'RSPP', 'min_required' => 1],
             ['code' => 'aspp', 'label' => 'ASPP'],
             ['code' => 'medico_competente', 'label' => 'Medico competente'],
             ['code' => 'rls', 'label' => 'RLS'],
@@ -23,9 +26,16 @@ class OrgRoleSeeder extends Seeder
         ];
 
         foreach ($roles as $position => $role) {
+            // Every column is spelled out: updateOrCreate only overwrites the keys it is
+            // given, so an omitted flag would keep whatever a previous seed run left
+            // behind instead of falling back to the default.
             OrgRole::updateOrCreate(
                 ['code' => $role['code']],
-                $role + ['position' => $position, 'min_required' => $role['min_required'] ?? 0],
+                $role + [
+                    'position' => $position,
+                    'min_required' => 0,
+                    'is_unique_per_company' => false,
+                ],
             );
         }
     }

@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
 #[Fillable([
-    'company_membership_id', 'org_role_id', 'appointed_at', 'revoked_at', 'appointment_file_id',
+    'company_membership_id', 'org_role_id', 'is_territorial', 'appointed_at',
+    'revoked_at', 'appointment_file_id',
 ])]
 class MembershipRole extends Pivot
 {
@@ -20,6 +21,7 @@ class MembershipRole extends Pivot
         return [
             'appointed_at' => 'date',
             'revoked_at' => 'date',
+            'is_territorial' => 'boolean',
         ];
     }
 

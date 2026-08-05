@@ -6,7 +6,9 @@ use App\Enums\MembershipStatus;
 use App\Enums\UserType;
 use App\Enums\WorkspaceKind;
 use App\Models\Company;
+use App\Models\OrgRole;
 use App\Models\User;
+use Database\Seeders\OrgRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -14,6 +16,13 @@ use Tests\TestCase;
 class RegisterCompanyTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(OrgRoleSeeder::class);
+    }
 
     /**
      * @return array<string, string>
@@ -61,6 +70,22 @@ class RegisterCompanyTest extends TestCase
         $this->assertSame($user->getKey(), $membership->user_id);
         $this->assertTrue($membership->is_admin, 'Whoever registers the company administers it.');
         $this->assertSame(MembershipStatus::Active, $membership->status);
+    }
+
+    /**
+     * "Imposta Organigramma" step 2 starts at "secondo ddl": the primary datore di
+     * lavoro is never asked for because it is whoever registered.
+     */
+    public function test_the_registrant_is_appointed_primary_datore_di_lavoro(): void
+    {
+        $this->postJson('/api/auth/register', $this->payload())->assertCreated();
+
+        $user = User::where('email', 'edilcostruzioni@gmail.com')->sole();
+        $datoreLavoro = OrgRole::where('code', 'datore_lavoro')->sole();
+
+        $this->assertTrue(
+            $user->activeOrgRoleIds(Company::sole()->getKey())->contains($datoreLavoro->getKey()),
+        );
     }
 
     public function test_the_returned_token_authenticates_the_new_user(): void
