@@ -60,6 +60,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)
             ->by(Str::lower((string) $request->input('email')).'|'.$request->ip()));
 
+        // Open to the public and it writes a tenant per call, so it is throttled by IP.
+        RateLimiter::for('register', fn (Request $request) => Limit::perMinute(3)->by($request->ip()));
+
         RateLimiter::for('invitations', fn (Request $request) => Limit::perMinute(10)
             ->by($request->user()?->getAuthIdentifier() ?: $request->ip()));
 

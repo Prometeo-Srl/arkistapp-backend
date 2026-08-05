@@ -2,16 +2,77 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MembershipStatus;
+use App\Enums\UserType;
+use App\Enums\WorkspaceKind;
 use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterCompanyRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Company;
+use App\Models\CompanyMembership;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    /**
+     * "Registrazione" for the employer branch of step 1 ("datore di lavoro").
+     * One transaction writes the three rows a tenant needs: the user, the business
+     * workspace they own, and the admin membership binding them together.
+     *
+     * The "lavoratore" branch is not wired yet: it needs a personal workspace
+     * (Company::personalFor) and its own prototype, which has not been specified.
+     */
+    public function register(RegisterCompanyRequest $request)
+    {
+        $data = $request->validated();
+
+        [$user, $company] = DB::transaction(function () use ($data) {
+            $user = User::create([
+                'email' => $data['email'],
+                'password' => $data['password'],
+                'type' => UserType::CompanyUser,
+                // Self-chosen password: nothing to force a change of on first login.
+                'must_change_password' => false,
+            ]);
+
+            $company = Company::create([
+                'name' => $data['company_name'],
+                'kind' => WorkspaceKind::Business,
+                'owner_user_id' => $user->getKey(),
+                'vat_number' => $data['vat_number'],
+                'legal_address' => $data['legal_address'],
+                'postal_code' => $data['postal_code'],
+                'city' => $data['city'],
+                'province' => $data['province'],
+                // Self-registration, as opposed to a workspace opened by an operator.
+                'created_by_operator_id' => null,
+            ]);
+
+            // Whoever registers the company administers it, regardless of the org chart
+            // roles they later assign themselves in "Imposta Organigramma".
+            CompanyMembership::create([
+                'company_id' => $company->getKey(),
+                'user_id' => $user->getKey(),
+                'status' => MembershipStatus::Active,
+                'is_admin' => true,
+            ]);
+
+            return [$user, $company];
+        });
+
+        return response()->json([
+            'token' => $user->createToken($data['device_name'])->plainTextToken,
+            'user' => new UserResource($user),
+            // The app goes straight into "Imposta Organigramma" for this company.
+            'company_id' => $company->getKey(),
+        ], Response::HTTP_CREATED);
+    }
+
     public function login(LoginRequest $request)
     {
         $user = User::where('email', $request->validated('email'))->first();
