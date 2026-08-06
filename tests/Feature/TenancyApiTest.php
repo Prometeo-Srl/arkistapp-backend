@@ -165,9 +165,12 @@ class TenancyApiTest extends TestCase
         CompanyMembership::factory()->for($company)->for($admin)->admin()->create();
         CompanyMembership::factory()->for($company)->for($worker)->create();
 
+        $this->fakeStripe();
+
         $this->postJson("/api/companies/{$company->id}/subscription", [
             'plan_id' => Plan::where('code', 'premium_yearly')->firstOrFail()->id,
-        ])->assertCreated()->assertJsonPath('data.status', 'active');
+            'payment_method_id' => 'pm_card_visa',
+        ])->assertCreated()->assertJsonPath('data.status', 'trialing');
 
         $this->assertSame(SubscriptionStatus::Superseded, $personalSubscription->fresh()->status);
 

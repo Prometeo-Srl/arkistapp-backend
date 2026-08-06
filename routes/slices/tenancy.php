@@ -40,6 +40,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->withoutScopedBindings();
 
     Route::get('/companies/{company}/subscription', [SubscriptionController::class, 'show']);
+    // Card collection ("completa pagamento") comes first: the app confirms this
+    // SetupIntent, then posts the resulting payment method to subscribe.
+    Route::post('/companies/{company}/subscription/setup-intent', [SubscriptionController::class, 'setupIntent']);
     Route::post('/companies/{company}/subscription', [SubscriptionController::class, 'store']);
     Route::delete('/companies/{company}/subscription', [SubscriptionController::class, 'destroy']);
 

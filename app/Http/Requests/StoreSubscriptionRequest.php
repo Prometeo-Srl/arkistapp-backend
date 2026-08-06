@@ -20,6 +20,9 @@ class StoreSubscriptionRequest extends FormRequest
     {
         return [
             'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_active', true)],
+            // Stripe PaymentMethod id from the confirmed SetupIntent; raw card
+            // data never reaches this API.
+            'payment_method_id' => ['required', 'string', 'starts_with:pm_', 'max:255'],
         ];
     }
 }

@@ -9,3 +9,4 @@ require __DIR__.'/slices/checklists.php';
 require __DIR__.'/slices/incidents.php';
 require __DIR__.'/slices/support.php';
 require __DIR__.'/slices/monitor.php';
+require __DIR__.'/slices/stripe.php';
