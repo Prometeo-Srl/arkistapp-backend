@@ -27,6 +27,8 @@ class FileResource extends JsonResource
             'owner_user_id' => $this->owner_user_id,
             'uploaded_by_id' => $this->uploaded_by_id,
             'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+            'uploaded_by' => new UserResource($this->whenLoaded('uploadedBy')),
             'folder' => new FolderResource($this->whenLoaded('folder')),
             'document_type' => new DocumentTypeResource($this->whenLoaded('documentType')),
             'current_version' => new FileVersionResource($this->whenLoaded('currentVersion')),

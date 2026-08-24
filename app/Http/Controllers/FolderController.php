@@ -23,7 +23,7 @@ class FolderController extends Controller
                 fn (Builder $q) => $q->where('category_id', $request->integer('category_id'))
             )
             ->where(fn (Builder $q) => $this->scopeVisibleFolders($q, $request->user(), $company))
-            ->with(['parent', 'children'])
+            ->with(['parent', 'children', 'createdBy'])
             ->orderBy('position')
             ->orderBy('name')
             ->get();
@@ -49,7 +49,7 @@ class FolderController extends Controller
                 'created_by_id' => $request->user()->getKey(),
             ]);
 
-        return (new FolderResource($folder->load(['parent', 'children'])))->response()->setStatusCode(201);
+        return (new FolderResource($folder->load(['parent', 'children', 'createdBy'])))->response()->setStatusCode(201);
     }
 
     public function update(UpdateFolderRequest $request, Folder $folder)
@@ -58,7 +58,7 @@ class FolderController extends Controller
 
         $folder->update($request->safe()->only(['name', 'icon', 'position', 'parent_folder_id']));
 
-        return new FolderResource($folder->fresh(['parent', 'children']));
+        return new FolderResource($folder->fresh(['parent', 'children', 'createdBy']));
     }
 
     public function destroy(Request $request, Folder $folder)

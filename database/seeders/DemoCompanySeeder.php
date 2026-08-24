@@ -70,6 +70,9 @@ class DemoCompanySeeder extends Seeder
             $this->member($company, $this->user($email, $name, $surname), $roleCodes, $status);
         }
 
+        // Every member gets the six folders of prototype 258.
+        (new PersonalFoldersSeeder)->setCommand($this->command)->run($company);
+
         $this->command->info('Employer: demo@prometeo.test / '.self::PASSWORD);
     }
 

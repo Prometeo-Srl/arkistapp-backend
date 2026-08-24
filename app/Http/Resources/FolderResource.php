@@ -21,6 +21,8 @@ class FolderResource extends JsonResource
             'position' => $this->position,
             'is_personal_of_user_id' => $this->is_personal_of_user_id,
             'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+            'created_by' => new UserResource($this->whenLoaded('createdBy')),
             'parent' => new FolderResource($this->whenLoaded('parent')),
             'children' => FolderResource::collection($this->whenLoaded('children')),
             'files' => FileResource::collection($this->whenLoaded('files')),
