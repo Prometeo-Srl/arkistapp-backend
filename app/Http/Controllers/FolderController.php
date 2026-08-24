@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\EffectiveAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FolderController extends Controller
 {
@@ -67,7 +68,9 @@ class FolderController extends Controller
     {
         $this->authorize('delete', $folder);
 
-        $folder->delete();
+        // The subtree cascade lives on the model; one transaction so a half-deleted
+        // branch can never be left behind.
+        DB::transaction(fn () => $folder->delete());
 
         return response()->noContent();
     }

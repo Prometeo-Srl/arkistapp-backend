@@ -19,6 +19,27 @@ class Folder extends Model
     use HasFactory;
     use SoftDeletes;
 
+    /**
+     * Deleting a folder takes its whole subtree with it: sub-folders, their files and
+     * every grant that pointed at any of them. Access is resolved from live grants, so
+     * revoking them is what actually locks a shared member out of the branch.
+     *
+     * The recursion runs through this same hook, one level per child.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (self $folder) {
+            $folder->accessGrants()->delete();
+
+            $folder->files->each(function (File $file) {
+                $file->accessGrants()->delete();
+                $file->delete();
+            });
+
+            $folder->children->each(fn (self $child) => $child->delete());
+        });
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);

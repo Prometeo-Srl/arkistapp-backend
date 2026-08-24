@@ -412,4 +412,48 @@ class DocumentApiTest extends TestCase
         $this->patchJson("/api/companies/{$company->id}/branding", ['font_family' => 'Roboto'])
             ->assertForbidden();
     }
+
+    public function test_deleting_a_folder_cascades_to_the_whole_subtree(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        [$category, $parent] = $this->makeArchive($company);
+        $child = FolderFactory::new()->create([
+            'category_id' => $category->id,
+            'parent_folder_id' => $parent->id,
+            'created_by_id' => null,
+        ]);
+
+        $this->actingAsUser($admin);
+        $parentFileId = $this->uploadFile($parent->id);
+        $childFileId = $this->uploadFile($child->id);
+
+        // A member the branch was shared with must lose it, not keep a dangling grant.
+        $member = $this->attachMember($company);
+        AccessGrant::factory()->create([
+            'grantable_type' => 'folder',
+            'grantable_id' => $parent->id,
+            'grantee_type' => 'user',
+            'grantee_id' => $member->id,
+            'permission' => 'viewer',
+            'granted_by_id' => $admin->id,
+        ]);
+
+        $this->deleteJson("/api/folders/{$parent->id}")->assertNoContent();
+
+        $this->assertSoftDeleted('folders', ['id' => $parent->id]);
+        $this->assertSoftDeleted('folders', ['id' => $child->id]);
+        $this->assertSoftDeleted('files', ['id' => $parentFileId]);
+        $this->assertSoftDeleted('files', ['id' => $childFileId]);
+        $this->assertDatabaseMissing('access_grants', [
+            'grantable_type' => 'folder',
+            'grantable_id' => $parent->id,
+        ]);
+
+        // The member keeps their own personal folders; the shared branch is gone.
+        $this->actingAsUser($member);
+        $visible = $this->getJson("/api/companies/{$company->id}/folders")->assertOk()->json('data.*.id');
+        $this->assertNotContains($parent->id, $visible);
+        $this->assertNotContains($child->id, $visible);
+        $this->getJson("/api/files/{$childFileId}")->assertNotFound();
+    }
 }
