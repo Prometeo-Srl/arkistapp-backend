@@ -341,7 +341,9 @@ class DocumentApiTest extends TestCase
         // The datore di lavoro's own filing structure: nothing shared yet.
         $worker = $this->attachMember($company);
         $this->actingAsUser($worker);
-        $this->assertSame([], $this->visibleFolderIds($company));
+        // Their own personal branch is all they get: none of the company tree.
+        $own = Folder::where('is_personal_of_user_id', $worker->id)->pluck('id')->all();
+        $this->assertEqualsCanonicalizing($own, $this->visibleFolderIds($company));
         $this->getJson("/api/companies/{$company->id}/files")->assertOk()->assertJsonCount(0, 'data');
         $this->getJson("/api/files/{$fileId}")->assertForbidden();
 
@@ -356,7 +358,7 @@ class DocumentApiTest extends TestCase
         ])->assertCreated();
 
         $this->actingAsUser($worker);
-        $this->assertEqualsCanonicalizing([$folder->id, $child->id], $this->visibleFolderIds($company));
+        $this->assertEqualsCanonicalizing([$folder->id, $child->id, ...$own], $this->visibleFolderIds($company));
         $this->getJson("/api/companies/{$company->id}/files")->assertOk()->assertJsonCount(1, 'data');
         $this->getJson("/api/files/{$fileId}")->assertOk();
         $this->get("/api/files/{$fileId}/download")->assertOk();

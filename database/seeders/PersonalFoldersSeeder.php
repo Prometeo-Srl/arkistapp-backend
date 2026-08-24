@@ -2,73 +2,47 @@
 
 namespace Database\Seeders;
 
-use App\Models\Category;
 use App\Models\Company;
 use App\Models\Folder;
 use App\Models\User;
+use App\Observers\CompanyMembershipObserver;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * The six folders prototype 258 shows behind a worker's tile, for every member
- * of every workspace, plus one readable PDF in the first of them so 260 and
- * "scarica" have something.
+ * Backfill: CompanyMembershipObserver now creates a worker's personal branch when
+ * they are appointed, so this only covers memberships that predate that, and adds
+ * one readable PDF in "curriculum vitae" so 260 and "scarica" have something.
  *
  * Demo data, not part of DatabaseSeeder. Run it on purpose:
  *   sail artisan db:seed --class=PersonalFoldersSeeder
- *
- * ponytail: this stands in for a product gap — nothing creates a worker's
- * personal branch when they are appointed. That belongs in the membership
- * write path, not in a seeder.
  */
 class PersonalFoldersSeeder extends Seeder
 {
-    private const NAMES = [
-        'curriculum vitae', 'contratti', 'buste paga',
-        'attestati di formazione', 'cartella clinica', 'documenti vari',
-    ];
-
     public function run(?Company $only = null): void
     {
         $companies = $only ? collect([$only]) : Company::all();
 
         foreach ($companies as $company) {
-            $author = $company->owner_user_id;
-
-            $category = Category::firstOrCreate(
-                ['company_id' => $company->getKey(), 'name' => 'documenti personali'],
-                ['icon' => 'folder', 'position' => 0, 'created_by_id' => $author],
-            );
-
             $members = $company->memberships()->with('user')->get();
 
             foreach ($members as $membership) {
-                if ($membership->user) {
-                    $this->personalFolders($category, $membership->user, $author);
+                if (! $membership->user) {
+                    continue;
+                }
+
+                $folders = CompanyMembershipObserver::seedPersonalFolders($membership);
+                $cv = $folders['curriculum vitae'] ?? null;
+
+                if ($cv && $cv->files()->doesntExist()) {
+                    $this->demoPdf($cv, $membership->user, $company->owner_user_id);
                 }
             }
 
             $this->command?->info(
-                "{$company->name}: ".($members->count() * count(self::NAMES)).' folders'
+                "{$company->name}: "
+                .($members->count() * count(CompanyMembershipObserver::PERSONAL_FOLDERS)).' folders'
             );
-        }
-    }
-
-    private function personalFolders(Category $category, User $user, ?int $author): void
-    {
-        foreach (self::NAMES as $position => $name) {
-            $folder = Folder::firstOrCreate(
-                [
-                    'category_id' => $category->getKey(),
-                    'name' => $name,
-                    'is_personal_of_user_id' => $user->getKey(),
-                ],
-                ['position' => $position, 'created_by_id' => $author],
-            );
-
-            if ($position === 0 && $folder->files()->doesntExist()) {
-                $this->demoPdf($folder, $user, $author);
-            }
         }
     }
 

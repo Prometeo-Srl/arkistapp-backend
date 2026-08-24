@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\MembershipStatus;
 use App\Models\Category;
 use App\Models\Company;
 use App\Models\Folder;
 use App\Models\User;
+use App\Observers\CompanyMembershipObserver;
 use App\Observers\CompanyObserver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -56,7 +58,65 @@ class DefaultArchiveTest extends TestCase
     {
         $company = Company::personalFor(User::factory()->create());
 
-        $this->assertSame(0, $company->categories()->count());
+        // Only the worker's own branch, none of the config/document_tree.php sections.
+        $this->assertSame(
+            ['documenti personali'],
+            $company->categories()->pluck('name')->all()
+        );
+    }
+
+    public function test_an_active_membership_gets_the_personal_folder_branch(): void
+    {
+        $company = $this->business();
+        $worker = User::factory()->create();
+
+        $membership = $company->memberships()->create([
+            'user_id' => $worker->getKey(),
+            'status' => MembershipStatus::Active,
+        ]);
+
+        $category = $company->categories()->where('name', 'documenti personali')->sole();
+
+        $this->assertSame(
+            CompanyMembershipObserver::PERSONAL_FOLDERS,
+            $category->folders()
+                ->where('is_personal_of_user_id', $worker->getKey())
+                ->orderBy('position')
+                ->pluck('name')
+                ->all(),
+            'The six folders, in declared order, owned by the worker.'
+        );
+
+        // Idempotent: an appointment saving the membership again adds nothing.
+        $membership->touch();
+        $this->assertSame(
+            count(CompanyMembershipObserver::PERSONAL_FOLDERS),
+            $category->folders()->count()
+        );
+    }
+
+    public function test_a_membership_that_is_not_active_gets_no_personal_folders(): void
+    {
+        $company = $this->business();
+
+        $company->memberships()->create([
+            'user_id' => User::factory()->create()->getKey(),
+            'status' => MembershipStatus::Invited,
+        ]);
+
+        $this->assertSame(
+            0,
+            $company->categories()->where('name', 'documenti personali')->count()
+        );
+    }
+
+    private function business(): Company
+    {
+        return Company::create([
+            'name' => 'Edil Costruzioni',
+            'kind' => 'business',
+            'owner_user_id' => User::factory()->create()->getKey(),
+        ]);
     }
 
     private function countNodes(array $nodes): int
