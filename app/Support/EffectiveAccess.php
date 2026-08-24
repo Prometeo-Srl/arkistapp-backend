@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\AccessPermission;
 use App\Models\AccessGrant;
+use App\Models\Company;
 use App\Models\File;
 use App\Models\Folder;
 use App\Models\User;
@@ -48,6 +49,66 @@ final class EffectiveAccess
         }
 
         return false;
+    }
+
+    /**
+     * The company folders a non-admin may see: their own personal branch, plus whatever
+     * a grant on a category/folder reaches, plus everything nested under those. A folder
+     * nobody shared with them does not exist for them — the default archive belongs to
+     * the datore di lavoro, not to every employee.
+     *
+     * ponytail: resolved in PHP over the company's folder rows instead of a recursive
+     * CTE. Trees run a few hundred rows; move it into SQL if this listing ever shows up
+     * in the timings.
+     *
+     * @return array<int, int>
+     */
+    public static function visibleFolderIds(User $user, Company $company): array
+    {
+        $folders = Folder::query()
+            ->whereRelation('category', 'company_id', $company->getKey())
+            ->get(['id', 'parent_folder_id', 'category_id', 'is_personal_of_user_id']);
+
+        $grants = AccessGrant::query()->active()->forUser($user, $company->getKey())->get();
+        $categoryIds = $grants->where('grantable_type', 'category')->pluck('grantable_id')->all();
+        $folderIds = $grants->where('grantable_type', 'folder')->pluck('grantable_id')->all();
+
+        $visible = $folders
+            ->filter(fn (Folder $folder) => $folder->is_personal_of_user_id === $user->getKey()
+                || in_array($folder->category_id, $categoryIds)
+                || in_array($folder->getKey(), $folderIds))
+            ->pluck('id')
+            ->all();
+
+        // Grants cascade downwards: pull in descendants until nothing new appears.
+        do {
+            $before = count($visible);
+
+            foreach ($folders as $folder) {
+                if ($folder->parent_folder_id
+                    && in_array($folder->parent_folder_id, $visible)
+                    && ! in_array($folder->getKey(), $visible)) {
+                    $visible[] = $folder->getKey();
+                }
+            }
+        } while (count($visible) > $before);
+
+        return $visible;
+    }
+
+    /**
+     * Files shared one by one, whose folder itself stays invisible.
+     *
+     * @return array<int, int>
+     */
+    public static function grantedFileIds(User $user, Company $company): array
+    {
+        return AccessGrant::query()
+            ->active()
+            ->forUser($user, $company->getKey())
+            ->where('grantable_type', 'file')
+            ->pluck('grantable_id')
+            ->all();
     }
 
     /**

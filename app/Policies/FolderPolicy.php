@@ -49,15 +49,19 @@ class FolderPolicy
         return $this->writeAllowed($user, $folder);
     }
 
-    /** Personal folders are visible only to their owner and to company admins. */
+    /**
+     * The admins see the whole archive. A worker sees their own personal branch and
+     * whatever a grant reaches: the company's filing structure is not theirs to browse
+     * until something in it is shared with them.
+     */
     public function visibleTo(User $user, Folder $folder): bool
     {
-        if ($folder->is_personal_of_user_id === null) {
+        if ($user->isAdminOf($folder->category->company)) {
             return true;
         }
 
-        return $folder->is_personal_of_user_id === $user->getKey()
-            || $user->isAdminOf($folder->category->company);
+        return EffectiveAccess::ownsPersonalBranch($user, $folder)
+            || EffectiveAccess::forFolder($user, $folder) !== null;
     }
 
     private function writeAllowed(User $user, Folder $folder): bool

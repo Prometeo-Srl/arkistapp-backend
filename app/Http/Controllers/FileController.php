@@ -14,6 +14,8 @@ use App\Models\Company;
 use App\Models\DocumentType;
 use App\Models\File;
 use App\Models\Folder;
+use App\Models\User;
+use App\Support\EffectiveAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -245,16 +247,17 @@ class FileController extends Controller
         };
     }
 
-    /** Everyone sees shared folders; personal folders only their owner and the admins. */
-    private function scopeVisibleFolders(Builder $q, $user, Company $company): Builder
+    /**
+     * A worker sees the files of the folders shared with them and of their own personal
+     * branch, plus the single files shared with them directly.
+     */
+    private function scopeVisibleFolders(Builder $q, User $user, Company $company): Builder
     {
-        if ($user->isAdminOf($company)) {
+        if ($user->isOperator() || $user->isAdminOf($company)) {
             return $q;
         }
 
-        return $q->whereHas('folder', function (Builder $q) use ($user) {
-            $q->whereNull('is_personal_of_user_id')
-                ->orWhere('is_personal_of_user_id', $user->getKey());
-        });
+        return $q->whereIn('folder_id', EffectiveAccess::visibleFolderIds($user, $company))
+            ->orWhereIn('id', EffectiveAccess::grantedFileIds($user, $company));
     }
 }

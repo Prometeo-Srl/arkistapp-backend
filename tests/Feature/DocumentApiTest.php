@@ -201,6 +201,17 @@ class DocumentApiTest extends TestCase
         $fileId = $this->uploadFile($folder->id, ['requires_acknowledgement' => true]);
 
         $worker = $this->attachMember($company);
+
+        // Only a worker the document was shared with is asked to confirm it.
+        AccessGrant::create([
+            'grantable_type' => 'file',
+            'grantable_id' => $fileId,
+            'grantee_type' => 'user',
+            'grantee_id' => $worker->id,
+            'permission' => 'viewer',
+            'granted_by_id' => $admin->id,
+        ]);
+
         $this->actingAsUser($worker);
 
         $this->postJson("/api/files/{$fileId}/acknowledge")->assertCreated();
@@ -302,17 +313,61 @@ class DocumentApiTest extends TestCase
         $peer = $this->attachMember($company);
         [, $personalFolder] = $this->makeArchive($company, ['is_personal_of_user_id' => $worker->id]);
 
+        // Counts are relative: a business workspace ships with the default archive.
         $this->actingAsUser($worker);
-        $this->getJson("/api/companies/{$company->id}/folders")
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $personalFolder->id);
+        $this->assertContains($personalFolder->id, $this->visibleFolderIds($company));
 
         $this->actingAsUser($peer);
-        $this->getJson("/api/companies/{$company->id}/folders")->assertOk()->assertJsonCount(0, 'data');
+        $this->assertNotContains($personalFolder->id, $this->visibleFolderIds($company));
 
         $this->actingAsUser($admin);
-        $this->getJson("/api/companies/{$company->id}/folders")->assertOk()->assertJsonCount(1, 'data');
+        $this->assertContains($personalFolder->id, $this->visibleFolderIds($company));
+    }
+
+    public function test_company_folders_stay_private_until_shared(): void
+    {
+        Storage::fake('local');
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+
+        [$category, $folder] = $this->makeArchive($company);
+        $child = FolderFactory::new()->create([
+            'category_id' => $category->id,
+            'parent_folder_id' => $folder->id,
+            'created_by_id' => null,
+        ]);
+        $fileId = $this->uploadFile($child->id);
+
+        // The datore di lavoro's own filing structure: nothing shared yet.
+        $worker = $this->attachMember($company);
+        $this->actingAsUser($worker);
+        $this->assertSame([], $this->visibleFolderIds($company));
+        $this->getJson("/api/companies/{$company->id}/files")->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson("/api/files/{$fileId}")->assertForbidden();
+
+        // Sharing the parent folder cascades to the sub-folder and its files.
+        $this->actingAsUser($admin);
+        $this->postJson('/api/grants', [
+            'grantable_type' => 'folder',
+            'grantable_id' => $folder->id,
+            'grantee_type' => 'user',
+            'grantee_id' => $worker->id,
+            'permission' => 'viewer',
+        ])->assertCreated();
+
+        $this->actingAsUser($worker);
+        $this->assertEqualsCanonicalizing([$folder->id, $child->id], $this->visibleFolderIds($company));
+        $this->getJson("/api/companies/{$company->id}/files")->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson("/api/files/{$fileId}")->assertOk();
+        $this->get("/api/files/{$fileId}/download")->assertOk();
+    }
+
+    /** @return array<int, int> */
+    private function visibleFolderIds(Company $company): array
+    {
+        return $this->getJson("/api/companies/{$company->id}/folders")
+            ->assertOk()
+            ->json('data.*.id');
     }
 
     public function test_worker_uploads_only_into_own_personal_folder(): void

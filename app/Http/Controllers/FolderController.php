@@ -7,6 +7,8 @@ use App\Http\Requests\UpdateFolderRequest;
 use App\Http\Resources\FolderResource;
 use App\Models\Company;
 use App\Models\Folder;
+use App\Models\User;
+use App\Support\EffectiveAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -70,14 +72,16 @@ class FolderController extends Controller
         return response()->noContent();
     }
 
-    /** Everyone sees shared folders; personal folders only their owner and the admins. */
-    private function scopeVisibleFolders(Builder $q, $user, Company $company): Builder
+    /**
+     * A worker sees their own personal branch and whatever the company shared with
+     * them; the admins see the whole archive.
+     */
+    private function scopeVisibleFolders(Builder $q, User $user, Company $company): Builder
     {
-        if ($user->isAdminOf($company)) {
+        if ($user->isOperator() || $user->isAdminOf($company)) {
             return $q;
         }
 
-        return $q->whereNull('is_personal_of_user_id')
-            ->orWhere('is_personal_of_user_id', $user->getKey());
+        return $q->whereIn('id', EffectiveAccess::visibleFolderIds($user, $company));
     }
 }

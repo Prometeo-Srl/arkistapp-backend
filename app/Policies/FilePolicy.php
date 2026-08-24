@@ -27,11 +27,19 @@ class FilePolicy
             || EffectiveAccess::forFolder($user, $folder)?->canWrite() === true;
     }
 
+    /** Same rule as the containing folder, plus the file shared on its own. */
     public function view(User $user, File $file): bool
     {
         $folder = $file->folder;
+        $company = $folder->category->company;
 
-        return $user->isMemberOf($folder->category->company) && $this->folderVisibleTo($user, $folder);
+        if (! $user->isMemberOf($company)) {
+            return false;
+        }
+
+        return $user->isAdminOf($company)
+            || EffectiveAccess::ownsPersonalBranch($user, $folder)
+            || EffectiveAccess::forFile($user, $file) !== null;
     }
 
     /** Members always download; non-members need a direct, still-valid access grant. */
@@ -92,15 +100,5 @@ class FilePolicy
         $permission = EffectiveAccess::forFile($user, $file);
 
         return $permission !== null && $allows($permission);
-    }
-
-    private function folderVisibleTo(User $user, Folder $folder): bool
-    {
-        if ($folder->is_personal_of_user_id === null) {
-            return true;
-        }
-
-        return $folder->is_personal_of_user_id === $user->getKey()
-            || $user->isAdminOf($folder->category->company);
     }
 }
