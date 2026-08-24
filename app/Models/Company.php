@@ -6,7 +6,9 @@ use App\Enums\CompanySizeBand;
 use App\Enums\MembershipStatus;
 use App\Enums\SubscriptionStatus;
 use App\Enums\WorkspaceKind;
+use App\Observers\CompanyObserver;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'postal_code', 'city', 'province', 'ateco_code', 'employees_count', 'size_band',
     'logo_path', 'status', 'created_by_operator_id',
 ])]
+#[ObservedBy(CompanyObserver::class)]
 class Company extends Model
 {
     use HasFactory, SoftDeletes;
