@@ -19,6 +19,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use ZipArchive;
 
 class DocumentApiTest extends TestCase
 {
@@ -455,5 +456,43 @@ class DocumentApiTest extends TestCase
         $this->assertNotContains($parent->id, $visible);
         $this->assertNotContains($child->id, $visible);
         $this->getJson("/api/files/{$childFileId}")->assertNotFound();
+    }
+
+    public function test_folder_download_zips_the_whole_subtree(): void
+    {
+        Storage::fake('local');
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+
+        [$category, $parent] = $this->makeArchive($company, ['name' => 'Contratti 2025']);
+        $child = FolderFactory::new()->create([
+            'category_id' => $category->id,
+            'parent_folder_id' => $parent->id,
+            'created_by_id' => null,
+            'name' => 'Allegati',
+        ]);
+        $this->uploadFile($parent->id);
+        $this->uploadFile($child->id);
+
+        $response = $this->get("/api/folders/{$parent->id}/download")->assertOk();
+        $response->assertDownload('contratti-2025.zip');
+
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($response->baseResponse->getFile()->getPathname()) === true);
+        $this->assertNotFalse($zip->locateName('Contratti 2025/cert.pdf'));
+        $this->assertNotFalse($zip->locateName('Contratti 2025/Allegati/cert.pdf'));
+        $zip->close();
+    }
+
+    public function test_folder_download_is_denied_without_access(): void
+    {
+        Storage::fake('local');
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+        $this->uploadFile($folder->id);
+
+        $this->actingAsUser($this->attachMember($company));
+        $this->get("/api/folders/{$folder->id}/download")->assertForbidden();
     }
 }

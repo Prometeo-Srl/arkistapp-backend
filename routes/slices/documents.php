@@ -22,6 +22,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/companies/{company}/folders', [FolderController::class, 'store']);
     Route::patch('/folders/{folder}', [FolderController::class, 'update']);
     Route::delete('/folders/{folder}', [FolderController::class, 'destroy']);
+    // The whole branch as one zip; there is no per-file walk on the client.
+    Route::get('/folders/{folder}/download', [FolderController::class, 'download']);
 
     // Documents (multipart upload, download, versions, acknowledgements).
     Route::get('/companies/{company}/files', [FileController::class, 'index']);
