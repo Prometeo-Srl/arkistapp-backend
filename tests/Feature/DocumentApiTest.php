@@ -82,6 +82,27 @@ class DocumentApiTest extends TestCase
         return $response->json('data.id');
     }
 
+    /** The "informazioni file" card reads its whole payload off this endpoint. */
+    public function test_file_show_carries_the_info_card_fields(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company, ['name' => 'locali']);
+
+        $fileId = $this->uploadFile($folder->id, [
+            'requires_acknowledgement' => 1,
+            'requires_signature' => 1,
+        ]);
+
+        $this->getJson("/api/files/{$fileId}")
+            ->assertOk()
+            ->assertJsonPath('data.company_name', 'Acme Srl')
+            ->assertJsonPath('data.folder.name', 'locali')
+            ->assertJsonPath('data.requires_acknowledgement', true)
+            ->assertJsonPath('data.requires_signature', true)
+            ->assertJsonPath('data.expires_at', null);
+    }
+
     public function test_document_types_catalog_lists_seeded_types(): void
     {
         $this->actingAsUser();

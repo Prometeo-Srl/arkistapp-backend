@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'folder_id', 'document_type_id', 'name', 'media_kind', 'mime_type', 'size_bytes',
-    'current_version_id', 'issued_at', 'expires_at', 'requires_acknowledgement',
+    'current_version_id', 'issued_at', 'expires_at', 'requires_acknowledgement', 'requires_signature',
     'owner_user_id', 'uploaded_by_id',
 ])]
 class File extends Model
@@ -28,6 +28,7 @@ class File extends Model
             'issued_at' => 'date',
             'expires_at' => 'date',
             'requires_acknowledgement' => 'boolean',
+            'requires_signature' => 'boolean',
         ];
     }
 

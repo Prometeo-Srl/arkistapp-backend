@@ -54,7 +54,7 @@ class FileController extends Controller
                     ]);
             })
             ->where(fn (Builder $q) => $this->scopeVisibleFolders($q, $request->user(), $company))
-            ->with(['currentVersion', 'documentType', 'folder', 'uploadedBy'])
+            ->with(['currentVersion', 'documentType', 'folder.category.company', 'uploadedBy'])
             ->latest()
             // An archive grows without bound: paginate like the other list endpoints.
             ->paginate($request->integer('per_page', 50));
@@ -89,6 +89,7 @@ class FileController extends Controller
                 'requires_acknowledgement' => $request->has('requires_acknowledgement')
                     ? $request->boolean('requires_acknowledgement')
                     : ($documentType?->requires_acknowledgement_default ?? false),
+                'requires_signature' => $request->boolean('requires_signature'),
                 'owner_user_id' => $folder->is_personal_of_user_id,
                 'uploaded_by_id' => $request->user()->getKey(),
             ]);
@@ -106,7 +107,7 @@ class FileController extends Controller
             return $file;
         });
 
-        return (new FileResource($file->fresh(['currentVersion', 'documentType', 'folder', 'uploadedBy'])))
+        return (new FileResource($file->fresh(['currentVersion', 'documentType', 'folder.category.company', 'uploadedBy'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -116,7 +117,7 @@ class FileController extends Controller
     {
         $this->authorize('view', $file);
 
-        return new FileResource($file->load(['currentVersion', 'documentType', 'folder', 'uploadedBy']));
+        return new FileResource($file->load(['currentVersion', 'documentType', 'folder.category.company', 'uploadedBy']));
     }
 
     /** Streams the current version; non-members need a valid access grant. */
@@ -144,10 +145,13 @@ class FileController extends Controller
         if ($request->has('requires_acknowledgement')) {
             $data['requires_acknowledgement'] = $request->boolean('requires_acknowledgement');
         }
+        if ($request->has('requires_signature')) {
+            $data['requires_signature'] = $request->boolean('requires_signature');
+        }
 
         $file->update($data);
 
-        return new FileResource($file->fresh(['currentVersion', 'documentType', 'folder', 'uploadedBy']));
+        return new FileResource($file->fresh(['currentVersion', 'documentType', 'folder.category.company', 'uploadedBy']));
     }
 
     public function destroy(Request $request, File $file)
@@ -191,7 +195,7 @@ class FileController extends Controller
             ]);
         });
 
-        return (new FileResource($file->fresh(['currentVersion', 'documentType', 'folder', 'uploadedBy'])))
+        return (new FileResource($file->fresh(['currentVersion', 'documentType', 'folder.category.company', 'uploadedBy'])))
             ->response()
             ->setStatusCode(201);
     }

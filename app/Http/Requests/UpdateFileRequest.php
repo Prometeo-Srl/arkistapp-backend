@@ -27,6 +27,7 @@ class UpdateFileRequest extends FormRequest
             'document_type_id' => ['nullable', 'integer', Rule::exists('document_types', 'id')],
             'issued_at' => ['nullable', 'date'],
             'requires_acknowledgement' => ['nullable', 'boolean'],
+            'requires_signature' => ['nullable', 'boolean'],
         ];
     }
 }
