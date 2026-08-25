@@ -34,6 +34,19 @@ class CompanyMembership extends Pivot
         ];
     }
 
+    /**
+     * The membership a share implies: sharing a node with someone lets them into the
+     * workspace that holds it, without a token to redeem or an invitation to accept.
+     * An existing row is left alone — archiving somebody is a deliberate act.
+     */
+    public static function ensureFor(User $user, Company $company): self
+    {
+        return static::firstOrCreate(
+            ['company_id' => $company->getKey(), 'user_id' => $user->getKey()],
+            ['status' => MembershipStatus::Active, 'is_admin' => false],
+        );
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);

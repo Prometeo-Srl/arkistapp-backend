@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  */
 #[Fillable([
     'grantable_type', 'grantable_id', 'grantee_type', 'grantee_id',
-    'permission', 'granted_by_id', 'expires_at',
+    'invited_email', 'permission', 'granted_by_id', 'expires_at',
 ])]
 class AccessGrant extends Model
 {
@@ -50,6 +50,45 @@ class AccessGrant extends Model
     public function granteeOrgRole(): BelongsTo
     {
         return $this->belongsTo(OrgRole::class, 'grantee_id');
+    }
+
+    /**
+     * The company the shared node belongs to. Sharing has to reach it: a grant on a
+     * node of a workspace the person is not a member of would resolve to nothing.
+     */
+    public static function companyOf(Model $grantable): Company
+    {
+        return match (true) {
+            $grantable instanceof Category => $grantable->company,
+            $grantable instanceof Folder => $grantable->category->company,
+            $grantable instanceof File => $grantable->folder->category->company,
+        };
+    }
+
+    /**
+     * Hands every grant addressed to this user's email over to their fresh account.
+     *
+     * Sharing asks nothing of the person on the other side — no token, no accepting:
+     * an address shared with before it had an account is simply waiting, and the
+     * account picks the share up the moment it exists.
+     */
+    public static function claimFor(User $user): void
+    {
+        $grants = static::query()
+            ->whereNull('grantee_id')
+            ->whereRaw('lower(invited_email) = ?', [mb_strtolower($user->email)])
+            ->get();
+
+        foreach ($grants as $grant) {
+            $grantable = $grant->grantable;
+
+            if (! $grantable) {
+                continue;
+            }
+
+            CompanyMembership::ensureFor($user, static::companyOf($grantable));
+            $grant->update(['grantee_id' => $user->getKey(), 'invited_email' => null]);
+        }
     }
 
     public function scopeActive(Builder $query): void

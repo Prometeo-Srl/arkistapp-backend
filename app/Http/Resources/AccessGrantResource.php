@@ -18,12 +18,15 @@ class AccessGrantResource extends JsonResource
             'grantable_id' => $this->grantable_id,
             'grantee_type' => $this->grantee_type,
             'grantee_id' => $this->grantee_id,
+            // The address the row is shown by: the account's when there is one, the
+            // invited address while the grant is still waiting for an account.
+            'email' => $this->granteeUser?->email ?? $this->invited_email,
+            'name' => $this->granteeUser?->name,
             'permission' => $this->permission,
             'expires_at' => $this->expires_at,
             'granted_by_id' => $this->granted_by_id,
             'created_at' => $this->created_at,
             'grantable' => $this->whenLoaded('grantable'),
-            'grantee' => $this->whenLoaded('grantee'),
         ];
     }
 }

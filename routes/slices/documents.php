@@ -37,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/files/{file}/acknowledgements', [FileController::class, 'acknowledgements']);
 
     // Granular sharing.
+    Route::get('/grants', [AccessGrantController::class, 'index']);
     Route::post('/grants', [AccessGrantController::class, 'store']);
     Route::delete('/grants/{grant}', [AccessGrantController::class, 'destroy']);
 
