@@ -6,6 +6,7 @@ use App\Enums\MembershipStatus;
 use App\Observers\CompanyMembershipObserver;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 #[ObservedBy(CompanyMembershipObserver::class)]
 #[Fillable([
     'company_id', 'user_id', 'employee_code', 'department', 'hired_at',
-    'status', 'is_admin', 'invited_by_id',
+    'status', 'is_admin', 'is_guest', 'invited_by_id',
 ])]
 class CompanyMembership extends Pivot
 {
@@ -31,20 +32,31 @@ class CompanyMembership extends Pivot
             'hired_at' => 'date',
             'status' => MembershipStatus::class,
             'is_admin' => 'boolean',
+            'is_guest' => 'boolean',
         ];
     }
 
     /**
      * The membership a share implies: sharing a node with someone lets them into the
      * workspace that holds it, without a token to redeem or an invitation to accept.
-     * An existing row is left alone — archiving somebody is a deliberate act.
+     * An existing row is left alone — archiving somebody is a deliberate act, and an
+     * employee who is later shared something must not be demoted to a guest.
+     *
+     * A membership born this way is a guest: an outside professional or company, off
+     * the org chart. That is the line "gestisci accesso" filters on.
      */
     public static function ensureFor(User $user, Company $company): self
     {
         return static::firstOrCreate(
             ['company_id' => $company->getKey(), 'user_id' => $user->getKey()],
-            ['status' => MembershipStatus::Active, 'is_admin' => false],
+            ['status' => MembershipStatus::Active, 'is_admin' => false, 'is_guest' => true],
         );
+    }
+
+    /** The org chart: everybody except the guests let in by a share. */
+    public function scopeOnOrgChart(Builder $query): void
+    {
+        $query->where('is_guest', false);
     }
 
     public function company(): BelongsTo

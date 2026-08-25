@@ -21,13 +21,20 @@ use Illuminate\Http\Request;
  */
 class AccessGrantController extends Controller
 {
-    /** The "condiviso con" list of prototype 169: the owner, then every grant. */
+    /**
+     * The "condiviso con" list of prototype 169: the owner, then every grant.
+     *
+     * `audience` narrows it to one of the two screens reading this endpoint — see
+     * IndexAccessGrantRequest.
+     */
     public function index(IndexAccessGrantRequest $request)
     {
         $data = $request->validated();
 
         $grantable = $this->resolveGrantable($data['grantable_type'], $data['grantable_id']);
         $this->authorize('update', $grantable);
+
+        $company = AccessGrant::companyOf($grantable);
 
         $grants = AccessGrant::query()
             ->where('grantable_type', $data['grantable_type'])
@@ -36,7 +43,25 @@ class AccessGrantController extends Controller
             ->oldest()
             ->get();
 
-        $company = AccessGrant::companyOf($grantable);
+        if ($audience = $data['audience'] ?? null) {
+            $onOrgChart = CompanyMembership::query()
+                ->where('company_id', $company->getKey())
+                ->onOrgChart()
+                ->pluck('user_id')
+                ->all();
+
+            $grants = $grants
+                // A role grant belongs to neither screen, and its grantee_id indexes
+                // org_roles — comparing it against user ids would misfile it.
+                ->where('grantee_type', GranteeType::User)
+                ->filter(
+                    // A grant still waiting for an account is a guest by construction:
+                    // nobody on the org chart lacks a user to key on.
+                    fn (AccessGrant $grant) => in_array($grant->grantee_id, $onOrgChart, true)
+                        === ($audience === 'org_chart')
+                )
+                ->values();
+        }
 
         return AccessGrantResource::collection($grants)->additional([
             'owner' => [

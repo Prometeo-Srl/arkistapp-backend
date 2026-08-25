@@ -18,6 +18,9 @@ class CompanyMemberController extends Controller
 
         return MembershipResource::collection(
             $company->memberships()
+                // Guests let in by a share are not on the org chart: with no appointment
+                // to their name the directory would render them as "lavoratore".
+                ->onOrgChart()
                 ->with(['user', 'orgRoles'])
                 ->latest()
                 ->get()
