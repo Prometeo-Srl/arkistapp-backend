@@ -35,6 +35,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/files/{file}/versions', [FileController::class, 'storeVersion']);
     Route::post('/files/{file}/acknowledge', [FileController::class, 'acknowledge']);
     Route::get('/files/{file}/acknowledgements', [FileController::class, 'acknowledgements']);
+    // "cronologia": the audit trail of one document.
+    Route::get('/files/{file}/history', [FileController::class, 'history']);
 
     // Granular sharing.
     Route::get('/grants', [AccessGrantController::class, 'index']);

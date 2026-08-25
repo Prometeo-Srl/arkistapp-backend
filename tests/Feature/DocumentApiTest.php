@@ -387,6 +387,74 @@ class DocumentApiTest extends TestCase
     }
 
     /** @return array<int, int> */
+
+    /**
+     * "cronologia" (prototype 234). The trail is written by observers, so the test
+     * drives the real endpoints rather than seeding audit rows: a factory-built log
+     * would pass while nothing in the app ever recorded anything — which is exactly
+     * the state this table was in.
+     */
+    public function test_file_history_records_upload_rename_and_share(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+
+        $fileId = $this->uploadFile($folder->id);
+
+        $this->patchJson("/api/files/{$fileId}", ['name' => 'nuovo nome.pdf'])->assertOk();
+
+        $this->postJson('/api/grants', [
+            'grantable_type' => 'file',
+            'grantable_id' => $fileId,
+            'grantee_type' => 'user',
+            'email' => $this->attachMember($company)->email,
+            'permission' => 'viewer',
+        ])->assertSuccessful();
+
+        $response = $this->getJson("/api/files/{$fileId}/history")->assertOk();
+
+        // Newest first, and the upload's own `current_version_id` write must not be
+        // mistaken for a replacement.
+        $this->assertSame(
+            ['file.shared', 'file.renamed', 'file.uploaded'],
+            array_column($response->json('data'), 'action')
+        );
+        $this->assertSame($admin->id, $response->json('data.0.user.id'));
+        $this->assertSame($admin->name, $response->json('data.0.user.name'));
+    }
+
+    /** A replacement is a version landing on a file that already had one. */
+    public function test_file_history_records_a_replaced_version(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+
+        $fileId = $this->uploadFile($folder->id);
+
+        $this->post("/api/files/{$fileId}/versions", [
+            'file' => UploadedFile::fake()->create('cert-v2.pdf', 120),
+        ], ['Accept' => 'application/json'])->assertCreated();
+
+        $this->assertSame(
+            ['file.replaced', 'file.uploaded'],
+            array_column($this->getJson("/api/files/{$fileId}/history")->json('data'), 'action')
+        );
+    }
+
+    /** The trail of a document is as visible as the document, and no more. */
+    public function test_file_history_is_denied_to_an_outsider(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+        $fileId = $this->uploadFile($folder->id);
+
+        $this->actingAsUser();
+        $this->getJson("/api/files/{$fileId}/history")->assertForbidden();
+    }
+
     private function visibleFolderIds(Company $company): array
     {
         return $this->getJson("/api/companies/{$company->id}/folders")

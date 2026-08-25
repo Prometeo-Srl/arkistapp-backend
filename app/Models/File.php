@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\MediaKind;
+use App\Observers\FileObserver;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+#[ObservedBy(FileObserver::class)]
 #[Fillable([
     'folder_id', 'document_type_id', 'name', 'media_kind', 'mime_type', 'size_bytes',
     'current_version_id', 'issued_at', 'expires_at', 'requires_acknowledgement', 'requires_signature',

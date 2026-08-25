@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Enums\AccessPermission;
 use App\Enums\GranteeType;
+use App\Observers\AccessGrantObserver;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * Granular sharing of a category/folder/file with either a user or an org chart
  * role ("Gestisci accesso" / "Condividi" in the prototypes).
  */
+#[ObservedBy(AccessGrantObserver::class)]
 #[Fillable([
     'grantable_type', 'grantable_id', 'grantee_type', 'grantee_id',
     'invited_email', 'permission', 'granted_by_id', 'expires_at',

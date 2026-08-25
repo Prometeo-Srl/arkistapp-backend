@@ -16,6 +16,8 @@ class AuditLogResource extends JsonResource
             'id' => $this->id,
             'company_id' => $this->company_id,
             'user_id' => $this->user_id,
+            // The screen names the actor, so the trail is useless without them.
+            'user' => new UserResource($this->whenLoaded('user')),
             'action' => $this->action,
             'auditable_type' => $this->auditable_type,
             'auditable_id' => $this->auditable_id,

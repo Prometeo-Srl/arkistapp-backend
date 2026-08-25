@@ -7,9 +7,11 @@ use App\Http\Requests\StoreFileRequest;
 use App\Http\Requests\StoreFileVersionRequest;
 use App\Http\Requests\UpdateFileRequest;
 use App\Http\Resources\AcknowledgementResource;
+use App\Http\Resources\AuditLogResource;
 use App\Http\Resources\DocumentTypeResource;
 use App\Http\Resources\FileResource;
 use App\Models\Acknowledgement;
+use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\DocumentType;
 use App\Models\File;
@@ -239,6 +241,32 @@ class FileController extends Controller
         return AcknowledgementResource::collection(
             $file->acknowledgements()->with(['user', 'fileVersion'])->latest()->get()
         );
+    }
+
+    /**
+     * "cronologia" (prototype 234): what happened to this one document, newest
+     * first, each row naming the person behind it.
+     *
+     * Gated on `view` rather than on the company-wide audit log's admin check: the
+     * trail of a document is scoped to that document, and anyone allowed to open it
+     * is allowed to see who touched it.
+     */
+    public function history(Request $request, File $file)
+    {
+        $this->authorize('view', $file);
+
+        $entries = AuditLog::query()
+            ->where('auditable_type', $file->getMorphClass())
+            ->where('auditable_id', $file->getKey())
+            ->with('user')
+            // Bulk mutations land in the same second and `created_at` is the only
+            // timestamp on the table, so the id has to break the tie or the trail
+            // comes back in an arbitrary order.
+            ->latest()
+            ->orderByDesc('id')
+            ->paginate($request->integer('per_page', 50));
+
+        return AuditLogResource::collection($entries);
     }
 
     private function inferMediaKind(?string $mime): MediaKind
