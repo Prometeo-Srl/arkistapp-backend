@@ -214,6 +214,33 @@ class DocumentApiTest extends TestCase
         $this->assertDatabaseCount('file_versions', 2);
     }
 
+    /**
+     * Downloads are served under the file's name, so an extension left over from the
+     * replaced document hands the user a JPEG that every reader reads as a broken PDF.
+     */
+    public function test_new_version_of_another_kind_retitles_and_reclassifies_the_file(): void
+    {
+        Storage::fake('local');
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+        // Uploaded as cert.pdf, media_kind document.
+        $fileId = $this->uploadFile($folder->id);
+
+        $this->post("/api/files/{$fileId}/versions", [
+            'file' => UploadedFile::fake()->image('scan.jpg'),
+        ], ['Accept' => 'application/json'])
+            ->assertCreated()
+            // The title stays the document's, the extension follows the new payload.
+            ->assertJsonPath('data.name', 'cert.jpg')
+            ->assertJsonPath('data.media_kind', 'image')
+            ->assertJsonPath('data.mime_type', 'image/jpeg');
+
+        $this->get("/api/files/{$fileId}/download")
+            ->assertOk()
+            ->assertDownload('cert.jpg');
+    }
+
     public function test_acknowledgement_is_unique_per_version(): void
     {
         Storage::fake('local');

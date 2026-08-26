@@ -21,6 +21,7 @@ use App\Support\EffectiveAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -194,6 +195,10 @@ class FileController extends Controller
                 'current_version_id' => $version->getKey(),
                 'size_bytes' => $upload->getSize(),
                 'mime_type' => $upload->getMimeType(),
+                // A replacement may be of another kind entirely — a PDF swapped for a
+                // photo — and both of these describe the bytes, not the document.
+                'media_kind' => $this->inferMediaKind($upload->getMimeType()),
+                'name' => $this->withExtensionOf($file->name, $upload),
             ]);
         });
 
@@ -267,6 +272,26 @@ class FileController extends Controller
             ->paginate($request->integer('per_page', 50));
 
         return AuditLogResource::collection($entries);
+    }
+
+    /**
+     * The document keeps its title, but not an extension that lies about its bytes.
+     *
+     * Downloads are served under $file->name, so a JPEG still called ".pdf" reaches
+     * the user as a PDF that no reader can open. The extension comes from the sniffed
+     * type, not from the name the client sent.
+     */
+    private function withExtensionOf(string $name, UploadedFile $upload): string
+    {
+        $extension = (string) $upload->extension();
+        if ($extension === '') {
+            return $name;
+        }
+
+        $stem = pathinfo($name, PATHINFO_FILENAME);
+
+        // A name that is nothing but an extension (".pdf") has no title to keep.
+        return $stem === '' ? $name : "{$stem}.{$extension}";
     }
 
     private function inferMediaKind(?string $mime): MediaKind

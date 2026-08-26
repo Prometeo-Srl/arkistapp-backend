@@ -47,9 +47,17 @@ final class UploadedDocument
     ];
 
     /**
+     * The cap the app promises the user ("invia file fino a 1 gb", prototype 260).
+     *
+     * PHP refuses a body over its own post_max_size before validation ever runs,
+     * so this has to stay in step with docker/php.ini.
+     */
+    public const MAX_KILOBYTES = 1048576;
+
+    /**
      * @return array<int, string>
      */
-    public static function rules(int $maxKilobytes): array
+    public static function rules(int $maxKilobytes = self::MAX_KILOBYTES): array
     {
         return [
             'required',

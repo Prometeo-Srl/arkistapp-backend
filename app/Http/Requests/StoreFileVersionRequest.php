@@ -19,7 +19,7 @@ class StoreFileVersionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => UploadedDocument::rules(20480),
+            'file' => UploadedDocument::rules(),
             'replaced_reason' => ['nullable', 'string', 'max:255'],
         ];
     }

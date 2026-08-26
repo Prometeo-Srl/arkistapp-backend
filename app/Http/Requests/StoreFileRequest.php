@@ -21,7 +21,7 @@ class StoreFileRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => UploadedDocument::rules(20480),
+            'file' => UploadedDocument::rules(),
             'name' => ['nullable', 'string', 'max:255'],
             'folder_id' => ['required', 'integer', Rule::exists('folders', 'id')],
             'document_type_id' => ['nullable', 'integer', Rule::exists('document_types', 'id')],

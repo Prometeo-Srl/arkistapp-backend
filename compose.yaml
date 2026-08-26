@@ -19,6 +19,8 @@ services:
             IGNITION_LOCAL_SITES_PATH: '${PWD}'
         volumes:
             - '.:/var/www/html'
+            # Sorts after Sail's own 99-sail.ini, which caps an upload at 100M.
+            - './docker/php.ini:/etc/php/8.5/cli/conf.d/zz-prometeo.ini'
         networks:
             - sail
         depends_on:
