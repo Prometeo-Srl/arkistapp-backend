@@ -451,6 +451,31 @@ class DocumentApiTest extends TestCase
         $this->assertSame($admin->name, $response->json('data.0.user.name'));
     }
 
+    /**
+     * "gestisci configurazione" (prototype 235–236): the expiry is a field of the
+     * form, so a hand-set date has to survive the model's own recalculation — and
+     * clearing the toggle has to leave it empty.
+     */
+    public function test_file_expiry_can_be_set_and_cleared_by_hand(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+
+        $fileId = $this->uploadFile($folder->id);
+
+        $this->patchJson("/api/files/{$fileId}", [
+            'expires_at' => '2027-01-01',
+            'requires_signature' => true,
+        ])->assertOk()
+            ->assertJsonPath('data.expires_at', '2027-01-01')
+            ->assertJsonPath('data.requires_signature', true);
+
+        $this->patchJson("/api/files/{$fileId}", ['expires_at' => null])
+            ->assertOk()
+            ->assertJsonPath('data.expires_at', null);
+    }
+
     /** A replacement is a version landing on a file that already had one. */
     public function test_file_history_records_a_replaced_version(): void
     {

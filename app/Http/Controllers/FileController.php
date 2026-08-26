@@ -139,12 +139,12 @@ class FileController extends Controller
         ]);
     }
 
-    /** Metadata only: expires_at is recalculated by the model, never accepted here. */
+    /** Metadata only. A hand-set expires_at wins over the model's derived one. */
     public function update(UpdateFileRequest $request, File $file)
     {
         $this->authorize('update', $file);
 
-        $data = $request->safe()->only(['name', 'document_type_id', 'issued_at']);
+        $data = $request->safe()->only(['name', 'document_type_id', 'issued_at', 'expires_at']);
         if ($request->has('requires_acknowledgement')) {
             $data['requires_acknowledgement'] = $request->boolean('requires_acknowledgement');
         }
