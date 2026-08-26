@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\FileVisibility;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -35,6 +36,9 @@ class UpdateFileRequest extends FormRequest
             'expires_at' => ['nullable', 'date'],
             'requires_acknowledgement' => ['nullable', 'boolean'],
             'requires_signature' => ['nullable', 'boolean'],
+            // "gestisci accesso" (prototype 204): whether the folder's grants reach
+            // the document, or only the ones handed out on it.
+            'visibility' => ['sometimes', 'required', Rule::enum(FileVisibility::class)],
         ];
     }
 }

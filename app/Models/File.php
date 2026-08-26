@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FileVisibility;
 use App\Enums\MediaKind;
 use App\Observers\FileObserver;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 #[Fillable([
     'folder_id', 'document_type_id', 'name', 'media_kind', 'mime_type', 'size_bytes',
     'current_version_id', 'issued_at', 'expires_at', 'requires_acknowledgement', 'requires_signature',
-    'owner_user_id', 'uploaded_by_id',
+    'owner_user_id', 'uploaded_by_id', 'visibility',
 ])]
 class File extends Model
 {
@@ -28,6 +29,7 @@ class File extends Model
     {
         return [
             'media_kind' => MediaKind::class,
+            'visibility' => FileVisibility::class,
             'issued_at' => 'date',
             'expires_at' => 'date',
             'requires_acknowledgement' => 'boolean',

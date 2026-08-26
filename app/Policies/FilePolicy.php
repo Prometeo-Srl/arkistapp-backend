@@ -38,6 +38,9 @@ class FilePolicy
         }
 
         return $user->isAdminOf($company)
+            // "privato" is "solo io": the owner is the one person a visibility of
+            // their own can never lock out.
+            || $file->owner_user_id === $user->getKey()
             || EffectiveAccess::ownsPersonalBranch($user, $folder)
             || EffectiveAccess::forFile($user, $file) !== null;
     }
@@ -88,6 +91,11 @@ class FilePolicy
         $folder = $file->folder;
 
         if ($user->isAdminOf($folder->category->company)) {
+            return true;
+        }
+
+        // Whoever the document belongs to keeps managing it, "privato" included.
+        if ($file->owner_user_id === $user->getKey()) {
             return true;
         }
 

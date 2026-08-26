@@ -25,6 +25,8 @@ class FileResource extends JsonResource
             'expires_at' => $this->expires_at?->toDateString(),
             'requires_acknowledgement' => $this->requires_acknowledgement,
             'requires_signature' => $this->requires_signature,
+            // "gestisci accesso" (204): esteso / privato / personalizzato.
+            'visibility' => $this->visibility,
             'owner_user_id' => $this->owner_user_id,
             'uploaded_by_id' => $this->uploaded_by_id,
             'created_at' => $this->created_at,

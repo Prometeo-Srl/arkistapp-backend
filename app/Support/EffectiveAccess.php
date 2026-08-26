@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\AccessPermission;
+use App\Enums\FileVisibility;
 use App\Models\AccessGrant;
 use App\Models\Company;
 use App\Models\File;
@@ -19,15 +20,22 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class EffectiveAccess
 {
+    /**
+     * The document's own visibility (prototype 204) decides whether the folder around
+     * it still counts: "esteso" inherits the branch, "personalizzato" honours only the
+     * grants written on the file, "privato" honours none at all. The owner and the
+     * company admin are not resolved here — they never go through a grant.
+     */
     public static function forFile(User $user, File $file): ?AccessPermission
     {
         $folder = $file->folder;
+        $onTheFile = [['file', $file->getKey()]];
 
-        return self::strongest(
-            $user,
-            $folder,
-            [['file', $file->getKey()]]
-        );
+        return match ($file->visibility) {
+            FileVisibility::Private => null,
+            FileVisibility::Custom => self::pick($user, $folder->category->company_id, $onTheFile),
+            FileVisibility::Inherited => self::strongest($user, $folder, $onTheFile),
+        };
     }
 
     public static function forFolder(User $user, Folder $folder): ?AccessPermission
@@ -124,9 +132,19 @@ final class EffectiveAccess
 
         $targets[] = ['category', $folder->category_id];
 
+        return self::pick($user, $folder->category->company_id, $targets);
+    }
+
+    /**
+     * The strongest active grant this user holds over any of [$targets].
+     *
+     * @param  array<int, array{0: string, 1: int}>  $targets
+     */
+    private static function pick(User $user, int $companyId, array $targets): ?AccessPermission
+    {
         return AccessGrant::query()
             ->active()
-            ->forUser($user, $folder->category->company_id)
+            ->forUser($user, $companyId)
             ->where(function (Builder $query) use ($targets) {
                 foreach ($targets as [$type, $id]) {
                     $query->orWhere(fn (Builder $inner) => $inner

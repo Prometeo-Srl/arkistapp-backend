@@ -553,6 +553,56 @@ class DocumentApiTest extends TestCase
 
         $this->assertSame($folder->id, \App\Models\File::find($fileId)->folder_id);
     }
+    /**
+     * "gestisci accesso" of one document (prototype 204): the visibility decides
+     * whether the folder's grants still reach it.
+     */
+    public function test_visibility_decides_whether_the_folder_grants_reach_the_document(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+        $member = $this->attachMember($company);
+        $fileId = $this->uploadFile($folder->id);
+
+        $this->postJson('/api/grants', [
+            'grantable_type' => 'folder',
+            'grantable_id' => $folder->id,
+            'grantee_type' => 'user',
+            'email' => $member->email,
+            'permission' => 'viewer',
+        ])->assertCreated();
+
+        // "esteso": tutti gli utenti con accesso in cartella.
+        $this->actingAsUser($member);
+        $this->getJson("/api/files/{$fileId}")->assertOk();
+
+        // "privato": solo io — the folder's grant stops at the document.
+        $this->actingAsUser($admin);
+        $this->patchJson("/api/files/{$fileId}", ['visibility' => 'private'])
+            ->assertOk()
+            ->assertJsonPath('data.visibility', 'private');
+        $this->actingAsUser($member);
+        $this->getJson("/api/files/{$fileId}")->assertForbidden();
+
+        // "personalizzato": only what was handed out on the document itself.
+        $this->actingAsUser($admin);
+        $this->patchJson("/api/files/{$fileId}", ['visibility' => 'custom'])->assertOk();
+        $this->actingAsUser($member);
+        $this->getJson("/api/files/{$fileId}")->assertForbidden();
+
+        $this->actingAsUser($admin);
+        $this->postJson('/api/grants', [
+            'grantable_type' => 'file',
+            'grantable_id' => $fileId,
+            'grantee_type' => 'user',
+            'email' => $member->email,
+            'permission' => 'viewer',
+        ])->assertCreated();
+        $this->actingAsUser($member);
+        $this->getJson("/api/files/{$fileId}")->assertOk();
+    }
+
     public function test_file_history_records_a_replaced_version(): void
     {
         [$admin, $company] = $this->setUpCompany();

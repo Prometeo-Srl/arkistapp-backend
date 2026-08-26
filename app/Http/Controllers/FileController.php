@@ -144,7 +144,7 @@ class FileController extends Controller
     {
         $this->authorize('update', $file);
 
-        $data = $request->safe()->only(['name', 'document_type_id', 'issued_at', 'expires_at']);
+        $data = $request->safe()->only(['name', 'document_type_id', 'issued_at', 'expires_at', 'visibility']);
 
         // "posizione": a move stays inside the workspace. The policy gates the
         // file, not the destination, so the target folder is checked here.
