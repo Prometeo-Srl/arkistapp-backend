@@ -145,6 +145,18 @@ class FileController extends Controller
         $this->authorize('update', $file);
 
         $data = $request->safe()->only(['name', 'document_type_id', 'issued_at', 'expires_at']);
+
+        // "posizione": a move stays inside the workspace. The policy gates the
+        // file, not the destination, so the target folder is checked here.
+        if ($request->filled('folder_id')) {
+            $target = Folder::with('category')->findOrFail($request->integer('folder_id'));
+            abort_unless(
+                $target->category?->company_id === $file->folder?->category?->company_id,
+                403,
+                'La cartella di destinazione appartiene a un altro spazio di lavoro.'
+            );
+            $data['folder_id'] = $target->getKey();
+        }
         if ($request->has('requires_acknowledgement')) {
             $data['requires_acknowledgement'] = $request->boolean('requires_acknowledgement');
         }

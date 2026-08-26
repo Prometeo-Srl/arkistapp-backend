@@ -18,13 +18,20 @@ use Illuminate\Support\Str;
  */
 final class Audit
 {
-    public static function record(string $action, Model $auditable, ?int $companyId): void
+    /**
+     * @param  array<string, mixed>|null  $changes  What the mutation did, when the bare
+     *                                              action name is not enough to read it
+     *                                              back (a move, without its from/to, is
+     *                                              just "spostato").
+     */
+    public static function record(string $action, Model $auditable, ?int $companyId, ?array $changes = null): void
     {
         AuditLog::create([
             'company_id' => $companyId,
             // Null for anything the console does — seeders, imports, scheduled jobs.
             'user_id' => Auth::id(),
             'action' => $action,
+            'changes' => $changes,
             'auditable_type' => $auditable->getMorphClass(),
             'auditable_id' => $auditable->getKey(),
             'ip_address' => request()->ip(),

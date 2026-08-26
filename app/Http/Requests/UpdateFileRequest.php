@@ -24,6 +24,10 @@ class UpdateFileRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            // "posizione" (prototype 204): the move. The target folder has to be
+            // in the same workspace, which the controller checks — the tenant is
+            // three hops up and out of reach of a plain exists rule.
+            'folder_id' => ['sometimes', 'required', 'integer', Rule::exists('folders', 'id')],
             'document_type_id' => ['nullable', 'integer', Rule::exists('document_types', 'id')],
             'issued_at' => ['nullable', 'date'],
             // Set by hand from "gestisci configurazione" (prototype 236); null clears it.

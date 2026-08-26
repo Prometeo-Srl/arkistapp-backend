@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\File;
+use App\Models\Folder;
 use App\Support\Audit;
 
 /**
@@ -27,7 +28,13 @@ class FileObserver
         }
 
         if (array_key_exists('folder_id', $changes)) {
-            Audit::record('file.moved', $file, $companyId);
+            // A move with no destination reads as a disappearance: the trail has to
+            // name both ends, owner included — the same six folder names repeat once
+            // per worker under "documenti personali".
+            Audit::record('file.moved', $file, $companyId, [
+                'from' => self::describeFolder($file->getOriginal('folder_id')),
+                'to' => self::describeFolder($file->folder_id),
+            ]);
         }
 
         // The upload writes the row, then points it at its first version: that
@@ -42,6 +49,37 @@ class FileObserver
     public function deleted(File $file): void
     {
         Audit::record('file.deleted', $file, self::companyId($file));
+    }
+
+    /**
+     * The two ends of a move, as the trail needs to show them.
+     *
+     * The owner is part of the identity, not decoration: "contratti" alone names
+     * nine different folders in a workspace with nine workers.
+     *
+     * @return array{id: int, name: string, owner: string|null}|null
+     */
+    private static function describeFolder(?int $folderId): ?array
+    {
+        if ($folderId === null) {
+            return null;
+        }
+
+        $folder = Folder::with('personalOf')->find($folderId);
+        if ($folder === null) {
+            return null;
+        }
+
+        $owner = $folder->personalOf;
+
+        return [
+            'id' => $folder->getKey(),
+            'name' => $folder->name,
+            // Blank rather than absent for an account with no name on it yet: an
+            // empty owner has to read as "no owner", or the sentence says "in
+            // contratti di ".
+            'owner' => $owner === null ? null : (trim("{$owner->name} {$owner->surname}") ?: null),
+        ];
     }
 
     /**

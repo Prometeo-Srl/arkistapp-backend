@@ -477,6 +477,82 @@ class DocumentApiTest extends TestCase
     }
 
     /** A replacement is a version landing on a file that already had one. */
+
+    /**
+     * "posizione" (prototype 204): the move is a field of the same PATCH, and it
+     * may not carry a document out of its workspace.
+     */
+    public function test_file_can_be_moved_to_another_folder_of_the_same_company(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [$category, $folder] = $this->makeArchive($company);
+        $target = FolderFactory::new()->create([
+            'category_id' => $category->id,
+            'created_by_id' => null,
+        ]);
+
+        $fileId = $this->uploadFile($folder->id);
+
+        $this->patchJson("/api/files/{$fileId}", ['folder_id' => $target->id])
+            ->assertOk()
+            ->assertJsonPath('data.folder_id', $target->id);
+
+        // The observer names the move, so "cronologia" shows it.
+        $this->assertContains(
+            'file.moved',
+            array_column($this->getJson("/api/files/{$fileId}/history")->json('data'), 'action')
+        );
+    }
+
+
+    /**
+     * A move with no destination reads as a disappearance in "cronologia" — and
+     * the six personal folder names repeat once per worker, so the owner is part
+     * of the destination's identity.
+     */
+    public function test_a_move_records_where_the_document_came_from_and_went(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [$category, $source] = $this->makeArchive($company, ['name' => 'curriculum vitae']);
+        $worker = $this->attachMember($company);
+        $target = FolderFactory::new()->create([
+            'category_id' => $category->id,
+            'created_by_id' => null,
+            'name' => 'contratti',
+            'is_personal_of_user_id' => $worker->id,
+        ]);
+
+        $fileId = $this->uploadFile($source->id);
+        $this->patchJson("/api/files/{$fileId}", ['folder_id' => $target->id])->assertOk();
+
+        $move = collect($this->getJson("/api/files/{$fileId}/history")->json('data'))
+            ->firstWhere('action', 'file.moved');
+
+        $this->assertSame($source->id, $move['changes']['from']['id']);
+        $this->assertSame('curriculum vitae', $move['changes']['from']['name']);
+        $this->assertNull($move['changes']['from']['owner']);
+        $this->assertSame($target->id, $move['changes']['to']['id']);
+        $this->assertSame('contratti', $move['changes']['to']['name']);
+        $this->assertSame(trim("{$worker->name} {$worker->surname}"), $move['changes']['to']['owner']);
+    }
+    public function test_file_cannot_be_moved_into_another_companys_folder(): void
+    {
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+
+        $other = Company::create(['name' => 'Beta Srl', 'owner_user_id' => $admin->id]);
+        [, $foreign] = $this->makeArchive($other);
+
+        $fileId = $this->uploadFile($folder->id);
+
+        $this->patchJson("/api/files/{$fileId}", ['folder_id' => $foreign->id])
+            ->assertForbidden();
+
+        $this->assertSame($folder->id, \App\Models\File::find($fileId)->folder_id);
+    }
     public function test_file_history_records_a_replaced_version(): void
     {
         [$admin, $company] = $this->setUpCompany();
