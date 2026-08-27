@@ -29,6 +29,12 @@ use Illuminate\Validation\Rule;
 
 class FileController extends Controller
 {
+    /** Twice the widest the archive grid draws a card, so it stays sharp on a 2x screen. */
+    private const THUMBNAIL_WIDTH = 400;
+
+    /** Past this an image is served plain rather than decoded into memory. */
+    private const THUMBNAIL_SOURCE_MAX_BYTES = 40 * 1024 * 1024;
+
     public function documentTypes(): AnonymousResourceCollection
     {
         return DocumentTypeResource::collection(
@@ -145,6 +151,73 @@ class FileController extends Controller
         return Storage::download($version->storage_path, $file->name, [
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    /**
+     * A preview of an image document, for the cards of the archive grid.
+     *
+     * Rendered on first request and kept beside the original: there is one per
+     * version and a version never changes, so nothing has to invalidate it.
+     *
+     * Images only. A PDF first page is the same three lines with Ghostscript
+     * behind them, and handing Ghostscript a user-supplied file to paint a card
+     * in a grid is not a door worth opening.
+     */
+    public function thumbnail(File $file)
+    {
+        $this->authorize('download', $file);
+
+        abort_unless($file->media_kind === MediaKind::Image, 404);
+
+        $version = $file->currentVersion;
+        abort_unless($version && Storage::exists($version->storage_path), 404);
+
+        $path = 'thumbnails/'.$version->getKey().'.jpg';
+
+        if (! Storage::exists($path)) {
+            // A decoded bitmap costs multiples of the file on disk; past this the
+            // grid goes without rather than the request going down.
+            abort_if($version->size_bytes > self::THUMBNAIL_SOURCE_MAX_BYTES, 404);
+
+            try {
+                Storage::put($path, $this->renderThumbnail(Storage::get($version->storage_path)));
+            } catch (\Throwable) {
+                // A format Imagick cannot read is not an error worth a 500: the app
+                // falls back to the plain card.
+                abort(404);
+            }
+        }
+
+        // Inline, unlike download(): these bytes are a JPEG this server encoded
+        // itself, not the payload somebody uploaded, so there is nothing left in
+        // them to run.
+        return Storage::response($path, 'thumbnail.jpg', [
+            'Content-Type' => 'image/jpeg',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, max-age=604800',
+        ], 'inline');
+    }
+
+    private function renderThumbnail(string $bytes): string
+    {
+        $image = new \Imagick;
+
+        try {
+            $image->readImageBlob($bytes);
+            // A multi-frame source (an animated webp) still yields one card.
+            $image->setIteratorIndex(0);
+            // Phone photos carry their rotation in EXIF, which stripImage drops.
+            $image->autoOrient();
+            $image->thumbnailImage(self::THUMBNAIL_WIDTH, 0);
+            $image->setImageFormat('jpeg');
+            $image->setImageCompressionQuality(72);
+            // Strips the GPS coordinates along with the rest of the metadata.
+            $image->stripImage();
+
+            return $image->getImageBlob();
+        } finally {
+            $image->clear();
+        }
     }
 
     /** Metadata only. A hand-set expires_at wins over the model's derived one. */

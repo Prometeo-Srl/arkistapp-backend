@@ -30,6 +30,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/files', [FileController::class, 'store']);
     Route::get('/files/{file}', [FileController::class, 'show']);
     Route::get('/files/{file}/download', [FileController::class, 'download']);
+    // The card of the archive grid; only an image document has one.
+    Route::get('/files/{file}/thumbnail', [FileController::class, 'thumbnail']);
     Route::patch('/files/{file}', [FileController::class, 'update']);
     Route::delete('/files/{file}', [FileController::class, 'destroy']);
     Route::post('/files/{file}/versions', [FileController::class, 'storeVersion']);

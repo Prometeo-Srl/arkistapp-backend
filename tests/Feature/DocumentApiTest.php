@@ -19,6 +19,7 @@ use Database\Seeders\OrgRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Imagick;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 use ZipArchive;
@@ -786,5 +787,47 @@ class DocumentApiTest extends TestCase
 
         $this->actingAsUser($this->attachMember($company));
         $this->get("/api/folders/{$folder->id}/download")->assertForbidden();
+    }
+
+    /** The card of the archive grid: an image gets a preview, a document does not. */
+    public function test_thumbnail_is_rendered_once_for_an_image_and_refused_for_a_document(): void
+    {
+        Storage::fake('local');
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+
+        $imageId = $this->uploadFile($folder->id, [
+            'file' => UploadedFile::fake()->image('foto.jpg', 1600, 1200),
+        ]);
+        $documentId = $this->uploadFile($folder->id);
+
+        $response = $this->get("/api/files/{$imageId}/thumbnail")->assertOk();
+        $this->assertSame('image/jpeg', $response->headers->get('Content-Type'));
+
+        $version = File::findOrFail($imageId)->currentVersion;
+        Storage::assertExists("thumbnails/{$version->getKey()}.jpg");
+
+        $rendered = new Imagick;
+        $rendered->readImageBlob(Storage::get("thumbnails/{$version->getKey()}.jpg"));
+        $this->assertSame(400, $rendered->getImageWidth());
+        $rendered->clear();
+
+        // Only an image has one; the grid draws the plain card for everything else.
+        $this->get("/api/files/{$documentId}/thumbnail")->assertNotFound();
+    }
+
+    public function test_thumbnail_is_denied_without_access(): void
+    {
+        Storage::fake('local');
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+        $fileId = $this->uploadFile($folder->id, [
+            'file' => UploadedFile::fake()->image('foto.jpg'),
+        ]);
+
+        $this->actingAsUser($this->attachMember($company));
+        $this->get("/api/files/{$fileId}/thumbnail")->assertForbidden();
     }
 }
