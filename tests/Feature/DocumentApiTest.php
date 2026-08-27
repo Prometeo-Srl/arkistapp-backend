@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Enums\FileVisibility;
 use App\Models\AccessGrant;
 use App\Models\Category;
 use App\Models\Company;
 use App\Models\CompanyMembership;
 use App\Models\DocumentType;
+use App\Models\File;
 use App\Models\Folder;
 use App\Models\OrgRole;
 use App\Models\User;
@@ -505,7 +507,6 @@ class DocumentApiTest extends TestCase
         );
     }
 
-
     /**
      * A move with no destination reads as a disappearance in "cronologia" — and
      * the six personal folder names repeat once per worker, so the owner is part
@@ -537,6 +538,7 @@ class DocumentApiTest extends TestCase
         $this->assertSame('contratti', $move['changes']['to']['name']);
         $this->assertSame(trim("{$worker->name} {$worker->surname}"), $move['changes']['to']['owner']);
     }
+
     public function test_file_cannot_be_moved_into_another_companys_folder(): void
     {
         [$admin, $company] = $this->setUpCompany();
@@ -551,8 +553,9 @@ class DocumentApiTest extends TestCase
         $this->patchJson("/api/files/{$fileId}", ['folder_id' => $foreign->id])
             ->assertForbidden();
 
-        $this->assertSame($folder->id, \App\Models\File::find($fileId)->folder_id);
+        $this->assertSame($folder->id, File::find($fileId)->folder_id);
     }
+
     /**
      * "gestisci accesso" of one document (prototype 204): the visibility decides
      * whether the folder's grants still reach it.
@@ -631,6 +634,28 @@ class DocumentApiTest extends TestCase
 
         $this->actingAsUser();
         $this->getJson("/api/files/{$fileId}/history")->assertForbidden();
+    }
+
+    /** "configura file" runs before the upload: the transfer carries the form. */
+    public function test_upload_stores_the_config_sent_with_it(): void
+    {
+        Storage::fake('local');
+        [$admin, $company] = $this->setUpCompany();
+        $this->actingAsUser($admin);
+        [, $folder] = $this->makeArchive($company);
+
+        $fileId = $this->uploadFile($folder->id, [
+            'name' => 'contratto',
+            'visibility' => 'private',
+            'expires_at' => '2030-01-31',
+            'requires_signature' => 1,
+        ]);
+
+        $file = File::query()->findOrFail($fileId);
+        $this->assertSame('contratto', $file->name);
+        $this->assertSame(FileVisibility::Private, $file->visibility);
+        $this->assertSame('2030-01-31', $file->expires_at->toDateString());
+        $this->assertTrue($file->requires_signature);
     }
 
     private function visibleFolderIds(Company $company): array

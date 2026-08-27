@@ -52,6 +52,13 @@ class File extends Model
             return;
         }
 
+        // Nothing that feeds the derived date moved: leave the column alone. A
+        // hand-set expiry has to survive every save that follows it — the
+        // current_version_id write of an upload, a rename, a move.
+        if ($this->exists && ! $this->isDirty(['issued_at', 'document_type_id'])) {
+            return;
+        }
+
         $months = $this->documentType?->validity_months;
 
         $this->expires_at = ($this->issued_at && $months)

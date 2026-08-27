@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\FileVisibility;
 use App\Enums\MediaKind;
 use App\Http\Requests\StoreFileRequest;
 use App\Http\Requests\StoreFileVersionRequest;
@@ -93,6 +94,13 @@ class FileController extends Controller
                     ? $request->boolean('requires_acknowledgement')
                     : ($documentType?->requires_acknowledgement_default ?? false),
                 'requires_signature' => $request->boolean('requires_signature'),
+                // "gestisci accesso", picked in "configura file" before the upload.
+                'visibility' => $request->input('visibility') ?? FileVisibility::Inherited,
+                // Only when the form set one by hand: an expires_at written here is
+                // what stops the model deriving its own from the document type.
+                ...($request->filled('expires_at')
+                    ? ['expires_at' => $request->date('expires_at')]
+                    : []),
                 'owner_user_id' => $folder->is_personal_of_user_id,
                 'uploaded_by_id' => $request->user()->getKey(),
             ]);
