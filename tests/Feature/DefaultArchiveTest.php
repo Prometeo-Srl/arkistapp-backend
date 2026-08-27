@@ -77,20 +77,29 @@ class DefaultArchiveTest extends TestCase
 
         $category = $company->categories()->where('name', 'documenti personali')->sole();
 
+        // The branch is a folder of its own, named after the worker: the app browses
+        // it like any other, so a document can be filed straight into it.
+        $root = $category->folders()
+            ->where('is_personal_of_user_id', $worker->getKey())
+            ->whereNull('parent_folder_id')
+            ->sole();
+
+        $this->assertSame(trim($worker->name.' '.$worker->surname), $root->name);
+
         $this->assertSame(
             CompanyMembershipObserver::PERSONAL_FOLDERS,
-            $category->folders()
+            $root->children()
                 ->where('is_personal_of_user_id', $worker->getKey())
                 ->orderBy('position')
                 ->pluck('name')
                 ->all(),
-            'The six folders, in declared order, owned by the worker.'
+            'The six folders, in declared order, under the worker’s own root.'
         );
 
         // Idempotent: an appointment saving the membership again adds nothing.
         $membership->touch();
         $this->assertSame(
-            count(CompanyMembershipObserver::PERSONAL_FOLDERS),
+            count(CompanyMembershipObserver::PERSONAL_FOLDERS) + 1,
             $category->folders()->count()
         );
     }

@@ -21,6 +21,9 @@ class CompanyMembershipObserver
         'attestati di formazione', 'cartella clinica', 'documenti vari',
     ];
 
+    /** The key [seedPersonalFolders] returns the branch's own root folder under. */
+    public const PERSONAL_ROOT = '__root__';
+
     /**
      * A worker joining a company with an active subscription must no longer pay for
      * an individual plan: the subscription of their personal workspace gets absorbed.
@@ -63,7 +66,12 @@ class CompanyMembershipObserver
      * Idempotent, so it also backfills a membership created before this existed
      * and survives the repeated saves an appointment flow does.
      *
-     * Returns the created (or already present) folders, keyed by name.
+     * The branch has a root folder of its own, named after the worker: the app
+     * browses it like any other folder, so a document can be filed straight into
+     * the branch instead of only into one of the six below it.
+     *
+     * Returns the created (or already present) folders, keyed by name, the root
+     * itself under [self::PERSONAL_ROOT].
      *
      * @return array<string, Folder>
      */
@@ -82,14 +90,34 @@ class CompanyMembershipObserver
             ['icon' => 'folder', 'position' => 0, 'created_by_id' => $author],
         );
 
-        $folders = [];
+        // Keyed on the branch rather than on the name: an admin who renames the
+        // root must not get a second one on the next save.
+        $root = Folder::firstOrCreate(
+            [
+                'category_id' => $category->getKey(),
+                'parent_folder_id' => null,
+                'is_personal_of_user_id' => $membership->user_id,
+            ],
+            [
+                'name' => trim(
+                    ($membership->user?->name ?? '').' '.($membership->user?->surname ?? '')
+                ) ?: 'documenti personali',
+                'position' => 0,
+                'created_by_id' => $author,
+            ],
+        );
+
+        $folders = [self::PERSONAL_ROOT => $root];
 
         foreach (self::PERSONAL_FOLDERS as $position => $name) {
             $folders[$name] = Folder::firstOrCreate(
                 [
                     'category_id' => $category->getKey(),
-                    'parent_folder_id' => null,
+                    'parent_folder_id' => $root->getKey(),
                     'name' => $name,
+                    // Kept on the children as well: it is what makes them
+                    // read-only for the worker (FolderPolicy::writeAllowed) and
+                    // what stamps the owner on an upload (FileController@store).
                     'is_personal_of_user_id' => $membership->user_id,
                 ],
                 ['position' => $position, 'created_by_id' => $author],
