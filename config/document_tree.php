@@ -438,4 +438,7 @@ return [
             'Verbali sopralluogo in cantiere',
         ],
     ],
+
+    // No default folders yet: the checklist feature fills this section itself.
+    'Checklist' => [],
 ];
