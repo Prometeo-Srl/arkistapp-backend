@@ -65,13 +65,16 @@ final class EffectiveAccess
      * nobody shared with them does not exist for them — the default archive belongs to
      * the datore di lavoro, not to every employee.
      *
+     * [$includePersonal] false leaves the user's own branch out: "condivisi con me"
+     * (prototype 095) is what other people handed over, not what is theirs anyway.
+     *
      * ponytail: resolved in PHP over the company's folder rows instead of a recursive
      * CTE. Trees run a few hundred rows; move it into SQL if this listing ever shows up
      * in the timings.
      *
      * @return array<int, int>
      */
-    public static function visibleFolderIds(User $user, Company $company): array
+    public static function visibleFolderIds(User $user, Company $company, bool $includePersonal = true): array
     {
         $folders = Folder::query()
             ->whereRelation('category', 'company_id', $company->getKey())
@@ -82,7 +85,7 @@ final class EffectiveAccess
         $folderIds = $grants->where('grantable_type', 'folder')->pluck('grantable_id')->all();
 
         $visible = $folders
-            ->filter(fn (Folder $folder) => $folder->is_personal_of_user_id === $user->getKey()
+            ->filter(fn (Folder $folder) => ($includePersonal && $folder->is_personal_of_user_id === $user->getKey())
                 || in_array($folder->category_id, $categoryIds)
                 || in_array($folder->getKey(), $folderIds))
             ->pluck('id')

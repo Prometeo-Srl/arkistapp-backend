@@ -228,4 +228,46 @@ class AccessControlTest extends TestCase
         $this->assertSame(1, CompanyMembership::where('company_id', $this->company->id)
             ->where('user_id', $worker->id)->count());
     }
+
+    /**
+     * "condivisi con me" (prototype 095): grants only — not the worker's own branch,
+     * and not what they uploaded themselves.
+     */
+    public function test_the_shared_filter_lists_only_what_others_granted(): void
+    {
+        $worker = $this->member();
+
+        $shared = $this->fileIn(Folder::factory()->create(['category_id' => $this->category->id]));
+        $this->grant($worker, 'file', $shared->id, AccessPermission::Viewer);
+
+        $personal = Folder::factory()->create([
+            'category_id' => $this->category->id,
+            'is_personal_of_user_id' => $worker->id,
+        ]);
+        $own = $this->fileIn($personal);
+
+        $sharedFolder = Folder::factory()->create(['category_id' => $this->category->id]);
+        $this->grant($worker, 'folder', $sharedFolder->id, AccessPermission::Viewer);
+        $uploadedByWorker = $this->fileIn($sharedFolder);
+        $uploadedByWorker->update(['uploaded_by_id' => $worker->id]);
+
+        Sanctum::actingAs($worker);
+
+        $ids = collect(
+            $this->getJson("/api/companies/{$this->company->id}/files?shared=1")
+                ->assertOk()
+                ->json('data')
+        )->pluck('id')->all();
+
+        $this->assertSame([$shared->id], $ids);
+
+        // Without the filter their own branch is back in the list.
+        $all = collect(
+            $this->getJson("/api/companies/{$this->company->id}/files")
+                ->assertOk()
+                ->json('data')
+        )->pluck('id')->all();
+
+        $this->assertContains($own->id, $all);
+    }
 }

@@ -50,6 +50,7 @@ class FileController extends Controller
             'folder_id' => ['nullable', 'integer', Rule::exists('folders', 'id')],
             'expiring' => ['nullable', 'integer', 'min:1'],
             'media_kind' => ['nullable', Rule::enum(MediaKind::class)],
+            'shared' => ['nullable', 'boolean'],
         ]);
 
         $files = File::query()
@@ -63,7 +64,13 @@ class FileController extends Controller
                         now()->addDays((int) $validated['expiring'])->toDateString(),
                     ]);
             })
-            ->where(fn (Builder $q) => $this->scopeVisibleFolders($q, $request->user(), $company))
+            ->when(
+                $validated['shared'] ?? false,
+                fn (Builder $q) => $this->scopeSharedWithMe($q, $request->user(), $company),
+                fn (Builder $q) => $q->where(
+                    fn (Builder $inner) => $this->scopeVisibleFolders($inner, $request->user(), $company)
+                )
+            )
             ->with(['currentVersion', 'documentType', 'folder.category.company', 'uploadedBy'])
             ->latest()
             // An archive grows without bound: paginate like the other list endpoints.
@@ -409,5 +416,23 @@ class FileController extends Controller
 
         return $q->whereIn('folder_id', EffectiveAccess::visibleFolderIds($user, $company))
             ->orWhereIn('id', EffectiveAccess::grantedFileIds($user, $company));
+    }
+
+    /**
+     * "condivisi con me" (prototype 095): only what somebody else handed over.
+     *
+     * Grants alone, so an admin sees this list too — their own archive is the other
+     * tab. The user's personal branch is left out (it is theirs, not shared with
+     * them) and so is anything they uploaded themselves.
+     */
+    private function scopeSharedWithMe(Builder $q, User $user, Company $company): Builder
+    {
+        return $q
+            ->where(fn (Builder $inner) => $inner
+                ->whereIn('folder_id', EffectiveAccess::visibleFolderIds($user, $company, includePersonal: false))
+                ->orWhereIn('id', EffectiveAccess::grantedFileIds($user, $company)))
+            ->where(fn (Builder $inner) => $inner
+                ->whereNull('uploaded_by_id')
+                ->orWhere('uploaded_by_id', '!=', $user->getKey()));
     }
 }
