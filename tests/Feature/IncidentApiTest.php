@@ -147,6 +147,19 @@ class IncidentApiTest extends TestCase
         Storage::assertExists($attachment->storage_path);
     }
 
+    public function test_attachment_rejects_a_type_outside_the_incident_allowlist(): void
+    {
+        Storage::fake();
+        [$company, , $worker] = $this->companyWithAdminAndWorker();
+        $incident = IncidentReport::factory()->for($company)->create(['reported_by_id' => $worker->id]);
+
+        // Referti, verbali e documenti only: the archive's wider allowlist (audio,
+        // video, spreadsheets) does not apply to an incident report.
+        $this->postJson("/api/incidents/{$incident->id}/attachments", [
+            'file' => UploadedFile::fake()->create('archivio.zip', 10),
+        ])->assertUnprocessable()->assertJsonValidationErrors('file');
+    }
+
     public function test_non_member_cannot_access_incidents(): void
     {
         [$company, , $worker] = $this->companyWithAdminAndWorker();

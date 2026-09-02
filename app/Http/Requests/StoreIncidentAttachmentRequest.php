@@ -21,7 +21,7 @@ class StoreIncidentAttachmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => UploadedDocument::rules(10240),
+            'file' => UploadedDocument::rules(10240, UploadedDocument::INCIDENT_MIME_TYPES),
             'caption' => ['sometimes', 'nullable', 'string', 'max:255'],
             'media_kind' => ['sometimes', Rule::enum(MediaKind::class)],
         ];

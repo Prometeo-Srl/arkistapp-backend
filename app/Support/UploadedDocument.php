@@ -47,6 +47,27 @@ final class UploadedDocument
     ];
 
     /**
+     * "eventuali referti, verbali o documenti" (capitolato): the slice an incident
+     * attachment accepts — a referto as PDF or Word, or a photo of one.
+     *
+     * Audio and video are left out on purpose: nothing in the spec asks for them,
+     * and against that endpoint's 10 MB cap they are the files most likely to cost
+     * the reporter a long upload and then bounce.
+     *
+     * @var array<int, string>
+     */
+    public const INCIDENT_MIME_TYPES = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.oasis.opendocument.text',
+        'image/jpeg',
+        'image/png',
+        'image/heic',
+        'image/heif',
+    ];
+
+    /**
      * The cap the app promises the user ("invia file fino a 1 gb", prototype 260).
      *
      * PHP refuses a body over its own post_max_size before validation ever runs,
@@ -55,15 +76,16 @@ final class UploadedDocument
     public const MAX_KILOBYTES = 1048576;
 
     /**
+     * @param  array<int, string>  $mimeTypes
      * @return array<int, string>
      */
-    public static function rules(int $maxKilobytes = self::MAX_KILOBYTES): array
+    public static function rules(int $maxKilobytes = self::MAX_KILOBYTES, array $mimeTypes = self::MIME_TYPES): array
     {
         return [
             'required',
             'file',
             'max:'.$maxKilobytes,
-            'mimetypes:'.implode(',', self::MIME_TYPES),
+            'mimetypes:'.implode(',', $mimeTypes),
         ];
     }
 }
