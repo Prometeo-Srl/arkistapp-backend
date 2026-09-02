@@ -31,6 +31,9 @@ class CompanyResource extends JsonResource
                 'is_admin' => (bool) $this->pivot->is_admin,
                 'status' => $this->pivot->status,
                 'department' => $this->pivot->department,
+                // The appointments the caller holds here. The client gates the
+                // injury flow on them; the policy is what actually enforces it.
+                'roles' => $this->pivot->orgRoles()->wherePivotNull('revoked_at')->pluck('code'),
             ]),
         ];
     }

@@ -9,7 +9,9 @@ use App\Models\Company;
 use App\Models\CompanyMembership;
 use App\Models\IncidentAttachment;
 use App\Models\IncidentReport;
+use App\Models\OrgRole;
 use App\Models\User;
+use Database\Seeders\OrgRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -20,29 +22,42 @@ class IncidentApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(OrgRoleSeeder::class);
+    }
+
     private function actingAsUser(?User $user = null): User
     {
         return tap($user ?? User::factory()->create(), fn (User $u) => Sanctum::actingAs($u));
     }
 
     /**
+     * The admin also holds the datore di lavoro appointment: filing an injury is
+     * the employer's, not the workspace admin's, and the two are the same person
+     * in every company that has not delegated the role.
+     *
      * @return array{0: Company, 1: User, 2: User}
      */
     private function companyWithAdminAndWorker(): array
     {
         $admin = $this->actingAsUser();
         $company = Company::create(['name' => 'Acme Srl', 'owner_user_id' => $admin->id]);
-        CompanyMembership::factory()->for($company)->for($admin)->admin()->create();
+        $membership = CompanyMembership::factory()->for($company)->for($admin)->admin()->create();
+        $membership->orgRoles()->attach(OrgRole::where('code', 'datore_lavoro')->firstOrFail());
         $worker = $this->actingAsUser();
         CompanyMembership::factory()->for($company)->for($worker)->create();
 
         return [$company, $admin, $worker];
     }
 
-    public function test_worker_reports_incident_and_severity_bucket_is_derived(): void
+    public function test_employer_reports_an_injury_and_severity_bucket_is_derived(): void
     {
-        [$company, , $worker] = $this->companyWithAdminAndWorker();
+        [$company, $employer, $worker] = $this->companyWithAdminAndWorker();
 
+        Sanctum::actingAs($employer);
         $this->postJson("/api/companies/{$company->id}/incidents", [
             'kind' => IncidentKind::Injury->value,
             'occurred_at' => now()->subDay()->toDateString(),
@@ -50,6 +65,7 @@ class IncidentApiTest extends TestCase
             'absence_days' => 45,
         ])->assertCreated()->assertJsonPath('data.severity_bucket', 'over_40_days');
 
+        Sanctum::actingAs($worker);
         $this->postJson("/api/companies/{$company->id}/incidents", [
             'kind' => IncidentKind::NearMiss->value,
             'description' => 'Sfiorato da un carrello elevatore',
@@ -58,17 +74,57 @@ class IncidentApiTest extends TestCase
 
         $this->assertDatabaseHas('incident_reports', [
             'company_id' => $company->id,
-            'reported_by_id' => $worker->id,
+            'reported_by_id' => $employer->id,
             'severity_bucket' => 'over_40_days',
         ]);
     }
 
+    public function test_only_an_employer_may_file_an_injury(): void
+    {
+        [$company, , $worker] = $this->companyWithAdminAndWorker();
+
+        Sanctum::actingAs($worker);
+        $this->postJson("/api/companies/{$company->id}/incidents", [
+            'kind' => IncidentKind::Injury->value,
+            'description' => 'Caduta in magazzino',
+        ])->assertForbidden();
+
+        $this->assertDatabaseCount('incident_reports', 0);
+    }
+
+    public function test_a_worker_neither_lists_nor_reads_the_company_injuries(): void
+    {
+        [$company, $employer] = $this->companyWithAdminAndWorker();
+        $injury = IncidentReport::factory()->for($company)->create([
+            'kind' => IncidentKind::Injury,
+            'reported_by_id' => $employer->id,
+        ]);
+        $nearMiss = IncidentReport::factory()->for($company)->create(['kind' => IncidentKind::NearMiss]);
+
+        $reader = $this->actingAsUser();
+        CompanyMembership::factory()->for($company)->for($reader)->create();
+
+        $this->getJson("/api/companies/{$company->id}/incidents")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $nearMiss->id);
+        $this->getJson("/api/incidents/{$injury->id}")->assertForbidden();
+
+        // The RSPP is one of the three appointments the injury list is written for.
+        $membership = CompanyMembership::where('user_id', $reader->id)->firstOrFail();
+        $membership->orgRoles()->attach(OrgRole::where('code', 'rspp')->firstOrFail());
+
+        $this->getJson("/api/companies/{$company->id}/incidents")->assertOk()->assertJsonCount(2, 'data');
+        $this->getJson("/api/incidents/{$injury->id}")->assertOk();
+    }
+
     public function test_anonymous_report_strips_the_reporter(): void
     {
-        [$company] = $this->companyWithAdminAndWorker();
+        [$company, , $worker] = $this->companyWithAdminAndWorker();
 
+        Sanctum::actingAs($worker);
         $response = $this->postJson("/api/companies/{$company->id}/incidents", [
-            'kind' => IncidentKind::Injury->value,
+            'kind' => IncidentKind::NearMiss->value,
             'description' => 'Segnalazione anonima',
             'is_anonymous' => true,
         ])->assertCreated()
@@ -83,7 +139,7 @@ class IncidentApiTest extends TestCase
 
     public function test_reporter_edits_own_draft_but_other_members_cannot(): void
     {
-        [$company, $admin, $worker] = $this->companyWithAdminAndWorker();
+        [$company, , $worker] = $this->companyWithAdminAndWorker();
         $incident = IncidentReport::factory()->for($company)->create(['reported_by_id' => $worker->id]);
 
         $other = $this->actingAsUser();
@@ -130,8 +186,12 @@ class IncidentApiTest extends TestCase
     {
         Storage::fake();
         [$company, , $worker] = $this->companyWithAdminAndWorker();
-        $incident = IncidentReport::factory()->for($company)->create(['reported_by_id' => $worker->id]);
+        $incident = IncidentReport::factory()->for($company)->create([
+            'kind' => IncidentKind::NearMiss,
+            'reported_by_id' => $worker->id,
+        ]);
 
+        Sanctum::actingAs($worker);
         $response = $this->postJson("/api/incidents/{$incident->id}/attachments", [
             'file' => UploadedFile::fake()->create('foto.jpg', 200),
             'caption' => 'Foto del danno',
@@ -151,8 +211,12 @@ class IncidentApiTest extends TestCase
     {
         Storage::fake();
         [$company, , $worker] = $this->companyWithAdminAndWorker();
-        $incident = IncidentReport::factory()->for($company)->create(['reported_by_id' => $worker->id]);
+        $incident = IncidentReport::factory()->for($company)->create([
+            'kind' => IncidentKind::NearMiss,
+            'reported_by_id' => $worker->id,
+        ]);
 
+        Sanctum::actingAs($worker);
         // Referti, verbali e documenti only: the archive's wider allowlist (audio,
         // video, spreadsheets) does not apply to an incident report.
         $this->postJson("/api/incidents/{$incident->id}/attachments", [

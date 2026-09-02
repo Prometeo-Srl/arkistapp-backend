@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\IncidentKind;
 use App\Enums\IncidentStatus;
 use App\Enums\MediaKind;
 use App\Http\Requests\StoreIncidentAttachmentRequest;
@@ -19,7 +20,12 @@ class IncidentController extends Controller
     {
         $this->authorize('viewAny', [IncidentReport::class, $company]);
 
+        // An injury is only visible to the DDL, the RSPP and the medico competente;
+        // for everybody else the tab is the near miss list and nothing more.
+        $seesInjuries = $request->user()->can('viewInjuries', [IncidentReport::class, $company]);
+
         $incidents = IncidentReport::query()
+            ->unless($seesInjuries, fn ($q) => $q->where('kind', '!=', IncidentKind::Injury))
             ->where('company_id', $company->getKey())
             ->when($request->filled('kind'), fn ($q) => $q->where('kind', $request->query('kind')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')))
@@ -34,6 +40,10 @@ class IncidentController extends Controller
     public function store(StoreIncidentRequest $request, Company $company)
     {
         $this->authorize('create', [IncidentReport::class, $company]);
+
+        if ($request->enum('kind', IncidentKind::class) === IncidentKind::Injury) {
+            $this->authorize('createInjury', [IncidentReport::class, $company]);
+        }
 
         $incident = IncidentReport::create([
             ...$request->validated(),

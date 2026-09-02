@@ -107,6 +107,29 @@ class User extends Authenticatable
     }
 
     /**
+     * The codes behind {@see activeOrgRoleIds} — what the rules and the client are
+     * written against ('datore_lavoro', 'rspp', 'medico_competente', …).
+     *
+     * @return Collection<int, string>
+     */
+    public function activeOrgRoleCodes(?int $companyId = null): Collection
+    {
+        return OrgRole::query()
+            ->whereKey($this->activeOrgRoleIds($companyId))
+            ->pluck('code');
+    }
+
+    /**
+     * @param  array<int, string>  $codes
+     */
+    public function hasOrgRoleIn(Company $company, array $codes): bool
+    {
+        return $this->activeOrgRoleCodes($company->getKey())
+            ->intersect($codes)
+            ->isNotEmpty();
+    }
+
+    /**
      * @return Collection<int, int>
      */
     public function activeCompanyIds(): Collection
