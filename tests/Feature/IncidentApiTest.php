@@ -192,14 +192,21 @@ class IncidentApiTest extends TestCase
         ]);
 
         Sanctum::actingAs($worker);
+        // No `name` sent: the uploaded file's own is what the column has to keep,
+        // which is all the Flutter client relies on.
         $response = $this->postJson("/api/incidents/{$incident->id}/attachments", [
             'file' => UploadedFile::fake()->create('foto.jpg', 200),
             'caption' => 'Foto del danno',
-        ])->assertCreated()->assertJsonPath('data.caption', 'Foto del danno');
+        ])->assertCreated()
+            ->assertJsonPath('data.caption', 'Foto del danno')
+            // The stored path is hashed, so the uploaded name is what the
+            // client has to label the row with.
+            ->assertJsonPath('data.name', 'foto.jpg');
 
         $this->assertDatabaseHas('incident_attachments', [
             'incident_report_id' => $incident->id,
             'media_kind' => MediaKind::Image->value,
+            'name' => 'foto.jpg',
             'caption' => 'Foto del danno',
         ]);
 

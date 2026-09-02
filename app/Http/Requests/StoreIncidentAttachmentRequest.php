@@ -22,6 +22,8 @@ class StoreIncidentAttachmentRequest extends FormRequest
     {
         return [
             'file' => UploadedDocument::rules(10240, UploadedDocument::INCIDENT_MIME_TYPES),
+            // Only when the client wants a label other than the uploaded file's own.
+            'name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'caption' => ['sometimes', 'nullable', 'string', 'max:255'],
             'media_kind' => ['sometimes', Rule::enum(MediaKind::class)],
         ];

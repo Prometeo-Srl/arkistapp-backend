@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['incident_report_id', 'storage_path', 'media_kind', 'caption'])]
+#[Fillable(['incident_report_id', 'storage_path', 'name', 'media_kind', 'caption'])]
 class IncidentAttachment extends Model
 {
     use HasFactory;

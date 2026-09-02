@@ -28,7 +28,10 @@ class UpdateIncidentRequest extends FormRequest
 
         if ($canReview) {
             return [
-                'status' => ['sometimes', Rule::in([IncidentStatus::UnderReview->value, IncidentStatus::Closed->value])],
+                // `submitted` is allowed back: the detail (290) has
+                // "contrassegna da leggere" alongside "ho preso visione",
+                // which hands a report back to the unread pile.
+                'status' => ['sometimes', Rule::in([IncidentStatus::Submitted->value, IncidentStatus::UnderReview->value, IncidentStatus::Closed->value])],
                 'causes' => ['sometimes', 'nullable', 'string'],
                 'actions_taken' => ['sometimes', 'nullable', 'string'],
                 'inail_ref' => ['sometimes', 'nullable', 'string', 'max:255'],

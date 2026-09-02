@@ -102,10 +102,14 @@ class IncidentController extends Controller
     {
         $this->authorize('view', $incident);
 
-        $path = $request->file('file')->store('incidents');
+        $upload = $request->file('file');
+        $path = $upload->store('incidents');
 
         $attachment = $incident->attachments()->create([
             'storage_path' => $path,
+            // `storage_path` is hashed: the uploaded name is the only label the
+            // detail screen (290) can put on the row, as `FileController` does.
+            'name' => $request->validated('name') ?? $upload->getClientOriginalName(),
             'media_kind' => $request->validated('media_kind') ?? MediaKind::Image,
             'caption' => $request->validated('caption'),
         ]);

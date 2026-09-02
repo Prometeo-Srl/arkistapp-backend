@@ -16,6 +16,7 @@ class IncidentAttachmentResource extends JsonResource
         return [
             'id' => $this->id,
             'incident_report_id' => $this->incident_report_id,
+            'name' => $this->name,
             'media_kind' => $this->media_kind,
             'caption' => $this->caption,
             'url' => Storage::url($this->storage_path),
