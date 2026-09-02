@@ -32,6 +32,22 @@ class TenancyApiTest extends TestCase
         return tap($user ?? User::factory()->create(), fn (User $u) => Sanctum::actingAs($u));
     }
 
+    public function test_the_workspace_list_carries_the_membership_and_its_appointments(): void
+    {
+        $employer = $this->actingAsUser();
+        $company = Company::factory()->create();
+        $membership = CompanyMembership::factory()->for($company)->for($employer)->admin()->create();
+        $membership->orgRoles()->attach(OrgRole::where('code', 'datore_lavoro')->firstOrFail());
+
+        // The pivot needs its own key selected for orgRoles() to resolve at all;
+        // without it the client sees an unprivileged membership and hides the
+        // flows the appointment unlocks.
+        $this->getJson('/api/companies')
+            ->assertOk()
+            ->assertJsonPath('data.0.membership.is_admin', true)
+            ->assertJsonPath('data.0.membership.roles', ['datore_lavoro']);
+    }
+
     public function test_worker_lists_workspaces_and_gets_a_personal_one(): void
     {
         $worker = $this->actingAsUser();

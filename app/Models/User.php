@@ -66,7 +66,9 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Company::class, 'company_memberships')
             ->using(CompanyMembership::class)
-            ->withPivot(['status', 'department', 'employee_code', 'hired_at'])
+            // 'id' is what makes the pivot addressable: without it CompanyMembership
+            // has no key, and every relation hung off it (orgRoles) comes back empty.
+            ->withPivot(['id', 'status', 'is_admin', 'department', 'employee_code', 'hired_at'])
             ->withTimestamps();
     }
 
