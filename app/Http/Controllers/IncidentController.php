@@ -12,7 +12,10 @@ use App\Http\Resources\IncidentAttachmentResource;
 use App\Http\Resources\IncidentResource;
 use App\Models\Company;
 use App\Models\IncidentReport;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use ZipArchive;
 
 class IncidentController extends Controller
 {
@@ -117,5 +120,62 @@ class IncidentController extends Controller
         return (new IncidentAttachmentResource($attachment))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * The report as a document: the PDF on its own, or a zip holding the PDF and
+     * every attachment when the report carries any.
+     *
+     * The client cannot build the PDF itself, and one request per attachment over
+     * mobile data is what the archive spares — same trade as `FolderController::download`.
+     */
+    public function download(Request $request, IncidentReport $incident)
+    {
+        $this->authorize('view', $incident);
+
+        $incident->load(['company', 'reportedBy', 'attachments']);
+
+        $stem = 'segnalazione-'.$incident->getKey();
+        $pdf = Pdf::loadView('pdf.incident', ['incident' => $incident])->output();
+
+        if ($incident->attachments->isEmpty()) {
+            return response()->streamDownload(
+                fn () => print ($pdf),
+                $stem.'.pdf',
+                ['Content-Type' => 'application/pdf', 'X-Content-Type-Options' => 'nosniff'],
+            );
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'incident-');
+        $zip = new ZipArchive;
+        abort_unless($zip->open($path, ZipArchive::OVERWRITE) === true, 500, 'Cannot create the archive.');
+
+        $zip->addFromString($stem.'.pdf', $pdf);
+
+        foreach ($incident->attachments as $attachment) {
+            if (! Storage::exists($attachment->storage_path)) {
+                continue;
+            }
+
+            $name = $this->zipSafe($attachment->name ?: basename($attachment->storage_path));
+            // Two attachments may carry the same uploaded name; the id breaks the tie.
+            $entry = 'allegati/'.$name;
+            $zip->addFile(
+                Storage::path($attachment->storage_path),
+                $zip->locateName($entry) === false ? $entry : 'allegati/'.$attachment->getKey().'-'.$name,
+            );
+        }
+
+        $zip->close();
+
+        return response()
+            ->download($path, $stem.'.zip', ['X-Content-Type-Options' => 'nosniff'])
+            ->deleteFileAfterSend();
+    }
+
+    /** A name is user input: a separator in it would place the entry outside its folder. */
+    private function zipSafe(string $name): string
+    {
+        return trim(str_replace(['/', '\\', "\0"], '-', $name)) ?: 'senza-nome';
     }
 }

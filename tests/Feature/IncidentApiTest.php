@@ -242,4 +242,58 @@ class IncidentApiTest extends TestCase
         $this->getJson("/api/incidents/{$incident->id}")->assertForbidden();
         $this->deleteJson("/api/incidents/{$incident->id}")->assertForbidden();
     }
+
+    public function test_download_without_attachments_is_the_pdf_alone(): void
+    {
+        [$company, , $worker] = $this->companyWithAdminAndWorker();
+        $incident = IncidentReport::factory()->for($company)->create([
+            'kind' => IncidentKind::NearMiss,
+            'reported_by_id' => $worker->id,
+        ]);
+
+        Sanctum::actingAs($worker);
+        $response = $this->get("/api/incidents/{$incident->id}/download")
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+
+        $this->assertStringStartsWith('%PDF', $response->streamedContent());
+    }
+
+    public function test_download_with_attachments_is_a_zip_of_the_pdf_and_the_files(): void
+    {
+        Storage::fake();
+        [$company, , $worker] = $this->companyWithAdminAndWorker();
+        $incident = IncidentReport::factory()->for($company)->create([
+            'kind' => IncidentKind::NearMiss,
+            'reported_by_id' => $worker->id,
+        ]);
+
+        Sanctum::actingAs($worker);
+        $this->postJson("/api/incidents/{$incident->id}/attachments", [
+            'file' => UploadedFile::fake()->create('referto.pdf', 20),
+        ])->assertCreated();
+
+        $body = $this->get("/api/incidents/{$incident->id}/download")
+            ->assertOk()
+            ->streamedContent();
+
+        $path = tempnam(sys_get_temp_dir(), 'test-zip-');
+        file_put_contents($path, $body);
+        $zip = new \ZipArchive;
+        $this->assertTrue($zip->open($path) === true);
+        $this->assertNotFalse($zip->locateName("segnalazione-{$incident->id}.pdf"));
+        $this->assertNotFalse($zip->locateName('allegati/referto.pdf'));
+        $zip->close();
+        unlink($path);
+    }
+
+    public function test_download_is_refused_to_a_non_member(): void
+    {
+        [$company, , $worker] = $this->companyWithAdminAndWorker();
+        $incident = IncidentReport::factory()->for($company)->create(['reported_by_id' => $worker->id]);
+
+        $this->actingAsUser();
+
+        $this->get("/api/incidents/{$incident->id}/download")->assertForbidden();
+    }
 }
