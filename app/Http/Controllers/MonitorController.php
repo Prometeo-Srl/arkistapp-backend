@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\ActivityKind;
 use App\Enums\ActivityStatus;
+use App\Enums\MonitorKind;
 use App\Http\Requests\UpdateActivityRequest;
 use App\Http\Resources\ActivityResource;
 use App\Http\Resources\AuditLogResource;
@@ -11,17 +12,86 @@ use App\Http\Resources\PaymentResource;
 use App\Models\Activity;
 use App\Models\Company;
 use App\Models\Subscription;
+use App\Support\MonitorBoard;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * Monitor & Billing slice: "Monitora attività" board, status transitions,
- * the audit trail and payment history. Read-mostly; only PATCH /activities
- * writes.
+ * Monitor & Billing slice: "Monitora attività" (prototypes 059/063), the four
+ * counters of 078, the audit trail and payment history. Read-mostly; only
+ * PATCH /activities writes.
+ *
+ * Two boards live here, and they are not the same thing:
+ *
+ * - {@see board}, {@see subject} and {@see summary} are what the app renders.
+ *   They are derived per request from the duties on `files` and
+ *   `checklist_assignments` — see {@see MonitorBoard}.
+ * - {@see index} and {@see update} are the per-assignee `activities` rows.
+ *   Nothing writes that table today, so the endpoint answers an empty board; it
+ *   is kept because it is the shape a materialized board would take.
  */
 class MonitorController extends Controller
 {
-    /** Board: company-scoped, filterable by status/kind/assignee, latest first. */
+    /** The board of 059: one card per subject, counted across its whole roster. */
+    public function board(Request $request, Company $company)
+    {
+        $this->authorize('view', $company);
+
+        $filters = $request->validate([
+            'kind' => ['nullable', 'array'],
+            'kind.*' => [Rule::enum(MonitorKind::class)],
+            'status' => ['nullable', 'in:open,done'],
+            'q' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $items = collect(MonitorBoard::items($company));
+
+        // The tab counts and the home carousel describe the whole board, so they are
+        // taken before the filters narrow it: 059 shows "in corso (4) / completate (2)"
+        // with a tipologia filter applied.
+        $meta = [
+            'counts' => [
+                'open' => $items->where('status', 'open')->count(),
+                'done' => $items->where('status', 'done')->count(),
+            ],
+            'by_kind' => MonitorBoard::byKind($items->all()),
+        ];
+
+        if ($kinds = $filters['kind'] ?? null) {
+            $items = $items->whereIn('kind', $kinds);
+        }
+
+        if ($status = $filters['status'] ?? null) {
+            $items = $items->where('status', $status);
+        }
+
+        if ($needle = mb_strtolower(trim($filters['q'] ?? ''))) {
+            $items = $items->filter(fn (array $item) => str_contains(mb_strtolower($item['title']), $needle));
+        }
+
+        return response()->json(['data' => $items->values()->all(), 'meta' => $meta]);
+    }
+
+    /** One card's roster, split into "hanno completato" / "in attesa" (063). */
+    public function subject(Request $request, Company $company, string $subjectType, int $subjectId)
+    {
+        $this->authorize('view', $company);
+
+        $detail = MonitorBoard::detail($company, $subjectType, $subjectId);
+        abort_unless($detail !== null, 404);
+
+        return response()->json(['data' => $detail]);
+    }
+
+    /** The four counters of the home page (078). */
+    public function summary(Request $request, Company $company)
+    {
+        $this->authorize('view', $company);
+
+        return response()->json(['data' => MonitorBoard::summary($company)]);
+    }
+
+    /** `activities` rows: company-scoped, filterable by status/kind/assignee, latest first. */
     public function index(Request $request, Company $company)
     {
         // Through the policy, so the operator's before() bypass applies here too:

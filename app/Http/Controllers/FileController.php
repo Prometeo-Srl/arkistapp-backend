@@ -322,18 +322,43 @@ class FileController extends Controller
             'user_id' => $request->user()->getKey(),
         ]);
 
-        $isFirstConfirmation = ! $ack->exists;
+        // 201 is "the receipt is new", not "the row is new": AcknowledgementRoster
+        // writes the row when the duty is set, so by the time somebody confirms it
+        // the row is usually already there, waiting.
+        $isFirstConfirmation = $ack->confirmed_at === null;
 
-        if ($isFirstConfirmation) {
+        if (! $ack->exists) {
             $ack->file_id = $file->getKey();
-            $ack->required_at = $file->requires_acknowledgement ? now() : null;
+        }
+
+        // The roster (AcknowledgementRoster) stamps required_at when the duty is set,
+        // which is the moment it became due. This is the fallback for a row that has
+        // no roster behind it — a guest confirming off a direct grant.
+        if ($ack->required_at === null && ($file->requires_acknowledgement || $file->requires_signature)) {
+            $ack->required_at = now();
         }
 
         $ack->fill([
             'viewed_at' => now(),
             'confirmed_at' => now(),
             'ip_address' => $request->ip(),
-        ])->save();
+        ]);
+
+        // "presa visione + firma" is one receipt with two halves; the signature is the
+        // half the app has to hand over. Optional here because only a file with
+        // requires_signature asks for it.
+        if ($signature = $request->file('signature')) {
+            $request->validate([
+                'signature' => ['file', 'image', 'max:4096'],
+            ]);
+
+            $ack->signature_path = Storage::putFile(
+                "signatures/{$file->folder->category->company_id}",
+                $signature
+            );
+        }
+
+        $ack->save();
 
         return (new AcknowledgementResource($ack))->response()
             ->setStatusCode($isFirstConfirmation ? 201 : 200);

@@ -4,12 +4,17 @@ namespace App\Observers;
 
 use App\Models\File;
 use App\Models\Folder;
+use App\Support\AcknowledgementRoster;
 use App\Support\Audit;
 
 /**
  * The four file events "cronologia" names (prototype 234): caricato, rinominato,
  * spostato, sostituito — plus the deletion, which the screen never shows because
  * the file it belonged to is gone.
+ *
+ * Also the one place the "presa visione"/"firma" roster is kept in step with the
+ * document: every write that changes who the duty falls on comes through here, so
+ * a single hook covers the upload, the metadata PATCH and the new version alike.
  */
 class FileObserver
 {
@@ -43,6 +48,15 @@ class FileObserver
         if (array_key_exists('current_version_id', $changes)
             && $file->getOriginal('current_version_id') !== null) {
             Audit::record('file.replaced', $file, $companyId);
+        }
+
+        // Only the writes that move who the duty falls on: a rename would otherwise
+        // pay for a per-member access resolution it cannot change the result of.
+        $touchesRoster = ['requires_acknowledgement', 'requires_signature', 'visibility',
+            'current_version_id', 'folder_id', 'owner_user_id'];
+
+        if (array_intersect($touchesRoster, array_keys($changes))) {
+            AcknowledgementRoster::sync($file);
         }
     }
 

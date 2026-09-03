@@ -25,6 +25,16 @@ class File extends Model
     use HasFactory;
     use SoftDeletes;
 
+    /**
+     * The column has a database default, but a model built without it carries null
+     * until it is read back — and EffectiveAccess::forFile matches on the enum, so
+     * a null visibility is an "Unhandled match case" rather than a permissive
+     * default. Defaulting on the model keeps every caller out of that.
+     */
+    protected $attributes = [
+        'visibility' => 'inherited',
+    ];
+
     protected function casts(): array
     {
         return [
