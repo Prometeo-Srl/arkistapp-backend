@@ -62,6 +62,28 @@ class Company extends Model
         return $this->kind === WorkspaceKind::Personal;
     }
 
+    /**
+     * The four address columns as the one line every screen shows them on:
+     * "Via del Celso 12, Roma (RM) 00042".
+     *
+     * Null when the street is unknown — a personal workspace has no address at
+     * all, and half a line ("(RM) 00042") reads worse than nothing.
+     */
+    public function fullAddress(): ?string
+    {
+        if (blank($this->legal_address)) {
+            return null;
+        }
+
+        $locality = collect([
+            $this->city,
+            filled($this->province) ? "({$this->province})" : null,
+            $this->postal_code,
+        ])->filter()->implode(' ');
+
+        return collect([$this->legal_address, $locality])->filter()->implode(', ');
+    }
+
     public function scopeBusiness(Builder $query): void
     {
         $query->where('kind', WorkspaceKind::Business);

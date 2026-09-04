@@ -7,6 +7,7 @@ use App\Enums\UserType;
 use App\Enums\WorkspaceKind;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterCompanyRequest;
+use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Company;
 use App\Models\CompanyMembership;
@@ -17,6 +18,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -104,6 +106,37 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return new UserResource($request->user());
+    }
+
+    /**
+     * "modifica dati personali" — the "dati di accesso" rows (prototype 080).
+     *
+     * Partial: the screen edits one field at a time, so anything absent is left
+     * alone. UpdateProfileRequest is what enforces the current password on the
+     * two credential fields.
+     */
+    public function update(UpdateProfileRequest $request)
+    {
+        $user = $request->user();
+        // current_password is the proof of identity, never a column to write.
+        $data = collect($request->validated())->except('current_password')->all();
+
+        $user->update($data);
+
+        // A password change logs the other devices out: whoever knew the old one
+        // must not keep a live session. The caller's own token survives, so the
+        // app stays signed in on the phone that made the change.
+        if (array_key_exists('password', $data)) {
+            $tokens = $user->tokens();
+            // Sanctum hands a keyless TransientToken to session guards and to
+            // Sanctum::actingAs, so there is nothing to spare in those cases.
+            if (($current = $user->currentAccessToken()) instanceof PersonalAccessToken) {
+                $tokens->whereKeyNot($current->getKey());
+            }
+            $tokens->delete();
+        }
+
+        return new UserResource($user->fresh());
     }
 
     public function logout(Request $request)
