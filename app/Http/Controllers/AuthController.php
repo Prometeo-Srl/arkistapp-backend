@@ -112,4 +112,53 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Successful logout'], Response::HTTP_OK);
     }
+
+    /**
+     * "Elimina account" from the app menu (prototype 078).
+     *
+     * A soft delete, not an erasure: memberships, appointments, incident reports and
+     * checklist answers are safety records (D.Lgs 81/08) that keep referencing the
+     * person. What the deletion does guarantee is that the account is gone from the
+     * app's point of view — every token revoked, every membership archived, and the
+     * identifying columns scrubbed so the address is free to register again.
+     */
+    public function destroy(Request $request)
+    {
+        $user = $request->user();
+
+        // Deleting the owner of a workspace other people still work in would leave it
+        // with nobody able to administer it: the admin has to be handed over first.
+        $ownsLiveWorkspace = Company::query()
+            ->business()
+            ->where('owner_user_id', $user->getKey())
+            ->whereHas('memberships', fn ($query) => $query
+                ->where('status', MembershipStatus::Active)
+                ->where('user_id', '!=', $user->getKey()))
+            ->exists();
+
+        if ($ownsLiveWorkspace) {
+            throw ValidationException::withMessages([
+                'account' => ["trasferisci l'amministrazione dell'azienda a un altro utente prima di eliminare l'account"],
+            ]);
+        }
+
+        DB::transaction(function () use ($user) {
+            $user->memberships()->update(['status' => MembershipStatus::Archived]);
+            $user->tokens()->delete();
+
+            $user->forceFill([
+                'email' => 'deleted+'.$user->getKey().'@prometeo.invalid',
+                'name' => null,
+                'surname' => null,
+                'phone' => null,
+                'fiscal_code' => null,
+                'birth_date' => null,
+                'avatar_path' => null,
+            ])->save();
+
+            $user->delete();
+        });
+
+        return response()->noContent();
+    }
 }
