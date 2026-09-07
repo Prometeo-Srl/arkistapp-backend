@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -137,6 +138,51 @@ class AuthController extends Controller
         }
 
         return new UserResource($user->fresh());
+    }
+
+    /**
+     * The profile picture of the menu (prototype 078).
+     *
+     * One per user and replaced in place: the previous blob is deleted, so an
+     * account never accumulates avatars nobody can reach.
+     */
+    public function storeAvatar(Request $request)
+    {
+        $request->validate([
+            // Raster only: this endpoint serves what it stores inline, and an SVG
+            // would then run its own script on the API origin.
+            'avatar' => ['required', 'file', 'image', 'mimes:jpeg,png,webp', 'max:4096'],
+        ]);
+
+        $user = $request->user();
+        $previous = $user->avatar_path;
+
+        $user->update([
+            'avatar_path' => Storage::putFile('avatars/'.$user->getKey(), $request->file('avatar')),
+        ]);
+
+        if ($previous) {
+            Storage::delete($previous);
+        }
+
+        return new UserResource($user->fresh());
+    }
+
+    /**
+     * The bytes of the caller's own avatar, inline: the app draws them with an
+     * authenticated image request the way it draws document thumbnails.
+     */
+    public function avatar(Request $request)
+    {
+        $path = $request->user()->avatar_path;
+        abort_unless($path && Storage::exists($path), 404);
+
+        return Storage::response($path, 'avatar', [
+            'X-Content-Type-Options' => 'nosniff',
+            // Private, and the path changes on every upload, so the app's own
+            // cache key turns over with it.
+            'Cache-Control' => 'private, max-age=604800',
+        ], 'inline');
     }
 
     public function logout(Request $request)
