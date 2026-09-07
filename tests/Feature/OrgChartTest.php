@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\CompanyMembership;
 use App\Models\MembershipRole;
 use App\Models\OrgRole;
+use App\Models\OrgRolePermission;
 use App\Models\User;
 use Database\Seeders\OrgRoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -391,5 +392,79 @@ class OrgChartTest extends TestCase
         $this->putRole('rspp', [])->assertOk();
 
         $this->assertCount(1, $otherAdmin->activeOrgRoleIds($other->getKey()));
+    }
+
+    private function permissions()
+    {
+        return $this->getJson("/api/companies/{$this->company->getKey()}/org-role-permissions");
+    }
+
+    private function putPermissions(string $code, array $payload)
+    {
+        return $this->putJson(
+            "/api/companies/{$this->company->getKey()}/org-role-permissions/{$code}",
+            $payload,
+        );
+    }
+
+    /** 086 lists every grantable role, with both switches on until touched. */
+    public function test_gestisci_autorizzazioni_defaults_to_granted_for_every_role_but_the_employer(): void
+    {
+        $roles = $this->permissions()->assertOk()->json('roles');
+
+        $this->assertSame([
+            'datore_lavoro_secondario', 'rspp', 'aspp', 'medico_competente',
+            'rls', 'dirigente', 'preposto', 'lavoratore',
+        ], array_column($roles, 'code'));
+
+        foreach ($roles as $role) {
+            $this->assertTrue($role['can_view_org_chart']);
+            $this->assertTrue($role['can_view_incidents']);
+        }
+    }
+
+    public function test_a_switch_persists_and_leaves_the_other_roles_alone(): void
+    {
+        $roles = $this->putPermissions('aspp', [
+            'can_view_org_chart' => false,
+            'can_view_incidents' => true,
+        ])->assertOk()->json('roles');
+
+        $aspp = collect($roles)->firstWhere('code', 'aspp');
+        $this->assertFalse($aspp['can_view_org_chart']);
+        $this->assertTrue($aspp['can_view_incidents']);
+        $this->assertTrue(collect($roles)->firstWhere('code', 'rspp')['can_view_org_chart']);
+
+        // A second write updates the one row instead of inserting a rival.
+        $this->putPermissions('aspp', [
+            'can_view_org_chart' => true,
+            'can_view_incidents' => false,
+        ])->assertOk();
+
+        $this->assertSame(1, OrgRolePermission::where('company_id', $this->company->getKey())->count());
+        $aspp = collect($this->permissions()->json('roles'))->firstWhere('code', 'aspp');
+        $this->assertTrue($aspp['can_view_org_chart']);
+        $this->assertFalse($aspp['can_view_incidents']);
+    }
+
+    public function test_only_an_admin_may_change_the_authorizations(): void
+    {
+        $worker = User::factory()->create();
+        CompanyMembership::create([
+            'company_id' => $this->company->getKey(),
+            'user_id' => $worker->getKey(),
+            'status' => MembershipStatus::Active,
+            'is_admin' => false,
+        ]);
+
+        $this->actingAs($worker);
+        $this->permissions()->assertOk();
+        $this->putPermissions('aspp', ['can_view_org_chart' => false, 'can_view_incidents' => false])
+            ->assertForbidden();
+
+        $this->actingAs(User::factory()->create());
+        $this->permissions()->assertForbidden();
+        $this->putPermissions('aspp', ['can_view_org_chart' => false, 'can_view_incidents' => false])
+            ->assertForbidden();
     }
 }
