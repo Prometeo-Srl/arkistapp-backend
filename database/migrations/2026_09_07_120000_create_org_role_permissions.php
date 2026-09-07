@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->foreignId('org_role_id')->constrained()->cascadeOnDelete();
-            // Default granted, which is what the app enforces today: no endpoint
-            // gates on these flags yet, so defaulting them off would advertise a
-            // restriction that does not exist.
+            // Default granted: the flags landed on companies that were already
+            // running, and defaulting them off would have revoked the organigramma
+            // and the segnalazioni from every role at once.
             $table->boolean('can_view_org_chart')->default(true);
             $table->boolean('can_view_incidents')->default(true);
             $table->timestamps();

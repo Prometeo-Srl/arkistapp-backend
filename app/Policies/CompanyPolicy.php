@@ -27,10 +27,18 @@ class CompanyPolicy
         return $user->isAdminOf($company);
     }
 
-    /** Reading the org chart is open to every member; the prototype shows it to workers too. */
+    /**
+     * Reading the org chart is open to every member — the prototype shows it to
+     * workers too — unless the employer has taken it away from their role in
+     * "gestisci autorizzazioni" (086).
+     *
+     * This is the single gate for the whole organigramma: the directory
+     * (`/members`), the chart itself and the authorizations screen all authorize
+     * through it.
+     */
     public function viewMembers(User $user, Company $company): bool
     {
-        return $user->isMemberOf($company);
+        return $user->isMemberOf($company) && $user->canViewOrgChartIn($company);
     }
 
     public function manageMembers(User $user, Company $company): bool

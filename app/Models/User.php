@@ -34,6 +34,13 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     /**
+     * Per-company cache of {@see orgPermissionsIn}, keyed by company id.
+     *
+     * @var array<int, array{can_view_org_chart: bool, can_view_incidents: bool}>
+     */
+    private array $orgPermissions = [];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -129,6 +136,36 @@ class User extends Authenticatable
         return $this->activeOrgRoleCodes($company->getKey())
             ->intersect($codes)
             ->isNotEmpty();
+    }
+
+    /**
+     * "Gestisci autorizzazioni" (086) resolved for this user in one company: what
+     * the appointments they hold let them see there.
+     *
+     * The operatore and the admins of the company always see everything — the
+     * datore di lavoro is the one doing the granting, which is also why
+     * `datore_lavoro` is absent from the screen.
+     *
+     * Memoized per company: the policies below ask once per authorized model, and
+     * a list of incidents would otherwise re-query for every row.
+     *
+     * @return array{can_view_org_chart: bool, can_view_incidents: bool}
+     */
+    public function orgPermissionsIn(Company $company): array
+    {
+        return $this->orgPermissions[$company->getKey()] ??= ($this->isOperator() || $this->isAdminOf($company))
+            ? ['can_view_org_chart' => true, 'can_view_incidents' => true]
+            : OrgRolePermission::grantedFor($company, $this->activeOrgRoleCodes($company->getKey())->all());
+    }
+
+    public function canViewOrgChartIn(Company $company): bool
+    {
+        return $this->orgPermissionsIn($company)['can_view_org_chart'];
+    }
+
+    public function canViewIncidentsIn(Company $company): bool
+    {
+        return $this->orgPermissionsIn($company)['can_view_incidents'];
     }
 
     /**

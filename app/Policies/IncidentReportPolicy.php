@@ -28,9 +28,15 @@ class IncidentReportPolicy
         return $user->isOperator() ? true : null;
     }
 
+    /**
+     * Every member, unless the employer has taken "infortuni e segnalazioni" away
+     * from their role in "gestisci autorizzazioni" (086). The flag gates the whole
+     * section, filing included: the app hides the tab, and there is nothing to
+     * report into a list you may not read.
+     */
     public function viewAny(User $user, Company $company): bool
     {
-        return $user->isMemberOf($company);
+        return $user->isMemberOf($company) && $user->canViewIncidentsIn($company);
     }
 
     /** Whether the injury half of the list is theirs to see at all. */
@@ -41,7 +47,7 @@ class IncidentReportPolicy
 
     public function create(User $user, Company $company): bool
     {
-        return $user->isMemberOf($company);
+        return $this->viewAny($user, $company);
     }
 
     public function createInjury(User $user, Company $company): bool
@@ -51,7 +57,7 @@ class IncidentReportPolicy
 
     public function view(User $user, IncidentReport $incident): bool
     {
-        return $user->isMemberOf($incident->company)
+        return $this->viewAny($user, $incident->company)
             && ($incident->kind !== IncidentKind::Injury
                 || $this->viewInjuries($user, $incident->company));
     }

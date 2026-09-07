@@ -10,8 +10,8 @@ use Illuminate\Http\Request;
 
 /**
  * "Gestisci autorizzazioni" (prototype 086): one section per D.Lgs 81/08 role,
- * two switches each. Nothing enforces these flags yet — the screen writes them,
- * the reading endpoints still authorize through CompanyPolicy alone.
+ * two switches each. CompanyPolicy::viewMembers and IncidentReportPolicy::viewAny
+ * read them back through User::orgPermissionsIn().
  */
 class OrgRolePermissionController extends Controller
 {

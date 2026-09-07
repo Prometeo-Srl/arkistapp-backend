@@ -43,6 +43,11 @@ class CompanyResource extends JsonResource
                 // The appointments the caller holds here. The client gates the
                 // injury flow on them; the policy is what actually enforces it.
                 'roles' => $this->pivot->orgRoles()->wherePivotNull('revoked_at')->pluck('code'),
+                // "Gestisci autorizzazioni" (086) resolved for the caller: what
+                // their appointments let them see here. The app hides the
+                // organigramma and the segnalazioni tabs on these; CompanyPolicy
+                // and IncidentReportPolicy are what enforce them.
+                'permissions' => $request->user()->orgPermissionsIn($this->resource),
             ]),
         ];
     }

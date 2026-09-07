@@ -83,12 +83,28 @@ class MonitorController extends Controller
         return response()->json(['data' => $detail]);
     }
 
-    /** The four counters of the home page (078). */
+    /**
+     * The four counters of the home page (078). Three of them count what
+     * "gestisci autorizzazioni" (086) can take away, and a counter is still a
+     * number about it: they are left out rather than handed to a role that may
+     * not open the section. The app draws no card for a missing key.
+     */
     public function summary(Request $request, Company $company)
     {
         $this->authorize('view', $company);
 
-        return response()->json(['data' => MonitorBoard::summary($company)]);
+        $user = $request->user();
+        $summary = MonitorBoard::summary($company);
+
+        if (! $user->canViewOrgChartIn($company)) {
+            unset($summary['org_chart_members']);
+        }
+
+        if (! $user->canViewIncidentsIn($company)) {
+            unset($summary['serious_injuries'], $summary['reports']);
+        }
+
+        return response()->json(['data' => $summary]);
     }
 
     /** `activities` rows: company-scoped, filterable by status/kind/assignee, latest first. */

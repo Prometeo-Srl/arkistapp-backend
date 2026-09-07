@@ -467,4 +467,123 @@ class OrgChartTest extends TestCase
         $this->putPermissions('aspp', ['can_view_org_chart' => false, 'can_view_incidents' => false])
             ->assertForbidden();
     }
+
+    /** A non-admin member holding the given appointments, or none at all. */
+    private function member(array $roleCodes = []): User
+    {
+        $user = User::factory()->create();
+        $membership = CompanyMembership::create([
+            'company_id' => $this->company->getKey(),
+            'user_id' => $user->getKey(),
+            'status' => MembershipStatus::Active,
+            'is_admin' => false,
+        ]);
+
+        foreach ($roleCodes as $code) {
+            $membership->orgRoles()->attach($this->orgRole($code)->getKey(), [
+                'appointed_at' => now()->toDateString(),
+            ]);
+        }
+
+        return $user;
+    }
+
+    private function orgChart()
+    {
+        return $this->getJson("/api/companies/{$this->company->getKey()}/org-chart");
+    }
+
+    private function incidents()
+    {
+        return $this->getJson("/api/companies/{$this->company->getKey()}/incidents");
+    }
+
+    public function test_revoking_can_view_org_chart_closes_the_whole_organigramma_for_that_role(): void
+    {
+        $this->putPermissions('aspp', ['can_view_org_chart' => false, 'can_view_incidents' => true])
+            ->assertOk();
+
+        $this->actingAs($this->member(['aspp']));
+        $this->orgChart()->assertForbidden();
+        $this->getJson("/api/companies/{$this->company->getKey()}/members")->assertForbidden();
+        $this->permissions()->assertForbidden();
+        // The other half of 086 is untouched.
+        $this->incidents()->assertOk();
+
+        // A role that still grants it keeps the section open.
+        $this->actingAs($this->member(['rspp']));
+        $this->orgChart()->assertOk();
+    }
+
+    public function test_a_second_appointment_that_still_grants_keeps_the_section_open(): void
+    {
+        $this->putPermissions('aspp', ['can_view_org_chart' => false, 'can_view_incidents' => false])
+            ->assertOk();
+
+        $this->actingAs($this->member(['aspp', 'rspp']));
+        $this->orgChart()->assertOk();
+        $this->incidents()->assertOk();
+    }
+
+    /** A member with no appointment is read as `lavoratore`, which is the switch 086 offers. */
+    public function test_revoking_the_lavoratore_switch_closes_the_sections_for_a_plain_member(): void
+    {
+        $this->putPermissions('lavoratore', ['can_view_org_chart' => false, 'can_view_incidents' => false])
+            ->assertOk();
+
+        $this->actingAs($this->member());
+        $this->orgChart()->assertForbidden();
+        $this->incidents()->assertForbidden();
+        // Nothing to file into a list they may not read.
+        $this->postJson("/api/companies/{$this->company->getKey()}/incidents", [
+            'kind' => 'near_miss',
+            'description' => 'x',
+        ])->assertForbidden();
+    }
+
+    public function test_the_employer_keeps_seeing_everything_after_revoking_every_role(): void
+    {
+        $codes = ['datore_lavoro_secondario', 'rspp', 'aspp', 'medico_competente',
+            'rls', 'dirigente', 'preposto', 'lavoratore'];
+
+        foreach ($codes as $code) {
+            $this->putPermissions($code, ['can_view_org_chart' => false, 'can_view_incidents' => false])
+                ->assertOk();
+        }
+
+        $this->orgChart()->assertOk();
+        $this->incidents()->assertOk();
+        $this->permissions()->assertOk();
+    }
+
+    /** A counter is still a number about a section the caller may not open. */
+    public function test_the_home_summary_leaves_out_the_counters_of_a_closed_section(): void
+    {
+        $this->putPermissions('lavoratore', ['can_view_org_chart' => false, 'can_view_incidents' => true])
+            ->assertOk();
+
+        $this->actingAs($this->member());
+
+        $summary = $this->getJson("/api/companies/{$this->company->getKey()}/summary")
+            ->assertOk()->json('data');
+
+        $this->assertArrayNotHasKey('org_chart_members', $summary);
+        $this->assertArrayHasKey('serious_injuries', $summary);
+        $this->assertArrayHasKey('reports', $summary);
+        $this->assertArrayHasKey('open_activities', $summary);
+    }
+
+    /** What the app hides its tabs on. */
+    public function test_the_workspace_list_carries_the_callers_effective_permissions(): void
+    {
+        $this->putPermissions('aspp', ['can_view_org_chart' => false, 'can_view_incidents' => true])
+            ->assertOk();
+
+        $this->actingAs($this->member(['aspp']));
+
+        $this->getJson('/api/companies')->assertOk()->assertJsonPath(
+            'data.0.membership.permissions',
+            ['can_view_org_chart' => false, 'can_view_incidents' => true],
+        );
+    }
 }

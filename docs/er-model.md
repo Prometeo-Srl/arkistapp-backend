@@ -129,6 +129,14 @@ Seeded from the prototypes: `datore_lavoro`, `datore_lavoro_secondario`, `aspp`,
 **MEMBERSHIP_ROLE** — pivot: one membership can hold N roles (e.g. dirigente + preposto).
 `id, company_membership_id, org_role_id, appointed_at, revoked_at, appointment_file_id`
 
+**ORG_ROLE_PERMISSION** — "Gestisci autorizzazioni" (086): what one role may see in one company.
+`id, company_id, org_role_id, can_view_org_chart(default true), can_view_incidents(default true),
+timestamps`
+Unique on `(company_id, org_role_id)`. A missing row is granted, and a member with no appointment
+is read as `lavoratore`. `datore_lavoro` is never listed: the employer does the granting and always
+sees everything. Read back by `User::orgPermissionsIn()` for `CompanyPolicy::viewMembers` and
+`IncidentReportPolicy::viewAny`.
+
 **BRANDING_SETTING** — "Personalizzazione Interfaccia Grafica".
 `id, company_id, primary_hex, secondary_hex, accent_hex, font_family(default Montserrat),
 logo_path, icon_set`
