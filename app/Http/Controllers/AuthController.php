@@ -10,13 +10,13 @@ use App\Http\Requests\RegisterCompanyRequest;
 use App\Http\Requests\RequestEmailChangeRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
+use App\Mail\EmailChangeCode;
 use App\Models\Company;
 use App\Models\CompanyMembership;
 use App\Models\OrgRole;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Mail\Message;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -180,18 +180,12 @@ class AuthController extends Controller
             'expires_at' => $expiresAt,
         ], $expiresAt);
 
-        // Raw rather than a Mailable: six digits and one line of Italian do not
-        // need a view, and there is no other transactional mail in the app yet.
-        //
         // Sent inline, not queued, even though QUEUE_CONNECTION is redis: no
         // worker runs in this setup (composer dev starts one, Sail does not), so
         // a queued code would sit in Redis and never arrive. The caller pays the
         // SMTP round trip for it. Queue it the day a worker is supervised.
-        Mail::raw(
-            "Il codice per confermare la tua nuova email è {$code}.\n"
-            .'Scade tra 10 minuti.',
-            fn (Message $message) => $message->to($email)
-                ->subject('Conferma la tua nuova email'),
+        Mail::to($email)->send(
+            new EmailChangeCode($code, self::EMAIL_CHANGE_TTL_MINUTES),
         );
 
         return response()->noContent(Response::HTTP_ACCEPTED);
