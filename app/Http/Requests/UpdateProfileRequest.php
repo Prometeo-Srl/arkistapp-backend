@@ -10,9 +10,13 @@ use Illuminate\Validation\Rules\Password;
 /**
  * "modifica dati personali" — the "dati di accesso" half (prototype 080).
  *
- * Both editable fields are credentials, so either one requires the current
- * password: an unlocked phone must not be enough to take over the account by
- * moving the address the password reset would go to.
+ * The password is a credential, so changing it requires the current one: an
+ * unlocked phone must not be enough to take over the account.
+ *
+ * The email is deliberately NOT editable here. It goes through
+ * POST /auth/me/email then /auth/me/email/verify, which proves the new mailbox
+ * is reachable before writing it — accepting it straight from this endpoint
+ * would let a typo lock the account out of its own password reset.
  *
  * The password rules mirror RegisterCompanyRequest — the helper text under the
  * field is the same "minimo 8 caratteri, con una maiuscola e un numero".
@@ -32,18 +36,9 @@ class UpdateProfileRequest extends FormRequest
         return [
             'name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'surname' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'email' => [
-                'sometimes',
-                'email',
-                'max:255',
-                // ignore(): resubmitting the unchanged address must not collide
-                // with the caller's own row. Soft-deleted accounts are scrubbed
-                // to deleted+{id}@prometeo.invalid, so they never collide here.
-                Rule::unique('users', 'email')->ignore($this->user()),
-            ],
             'password' => ['sometimes', 'confirmed', 'regex:/\p{Lu}/u', Password::min(8)->numbers()],
             'current_password' => [
-                Rule::requiredIf(fn () => $this->hasAny(['email', 'password'])),
+                Rule::requiredIf(fn () => $this->has('password')),
                 'current_password',
             ],
         ];

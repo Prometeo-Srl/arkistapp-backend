@@ -7,6 +7,7 @@ use App\Enums\UserType;
 use App\Enums\WorkspaceKind;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterCompanyRequest;
+use App\Http\Requests\RequestEmailChangeRequest;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\UserResource;
 use App\Models\Company;
@@ -15,14 +16,26 @@ use App\Models\OrgRole;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Mail\Message;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
+    /**
+     * How long a mailed email-change code stays redeemable, and how many wrong
+     * guesses burn it. Six digits are guessable inside ten minutes without a
+     * cap on attempts.
+     */
+    private const EMAIL_CHANGE_TTL_MINUTES = 10;
+
+    private const EMAIL_CHANGE_MAX_ATTEMPTS = 5;
+
     /**
      * "Registrazione" for the employer branch of step 1 ("datore di lavoro").
      * One transaction writes the three rows a tenant needs: the user, the business
@@ -138,6 +151,103 @@ class AuthController extends Controller
         }
 
         return new UserResource($user->fresh());
+    }
+
+    /**
+     * Step one of "modifica email" (prototype 080): park the new address and
+     * mail it a one-time code.
+     *
+     * Nothing on the user row moves until [verifyEmailChange] redeems that
+     * code — the address a password reset would go to must be proven reachable
+     * before it becomes the account's own. Both halves live in one cache entry,
+     * so an abandoned request expires by itself and a new one replaces it.
+     */
+    public function requestEmailChange(RequestEmailChangeRequest $request)
+    {
+        $email = $request->validated()['email'];
+        // Six digits, hashed at rest: the cache is not the place to keep a
+        // credential in the clear, and [verifyEmailChange] only ever compares.
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+        $expiresAt = now()->addMinutes(self::EMAIL_CHANGE_TTL_MINUTES);
+
+        Cache::put(self::emailChangeKey($request->user()), [
+            'email' => $email,
+            'code' => Hash::make($code),
+            'attempts' => 0,
+            // Carried in the payload so a wrong guess can rewrite the entry
+            // without moving the deadline it is guessing against.
+            'expires_at' => $expiresAt,
+        ], $expiresAt);
+
+        // Raw rather than a Mailable: six digits and one line of Italian do not
+        // need a view, and there is no other transactional mail in the app yet.
+        //
+        // Sent inline, not queued, even though QUEUE_CONNECTION is redis: no
+        // worker runs in this setup (composer dev starts one, Sail does not), so
+        // a queued code would sit in Redis and never arrive. The caller pays the
+        // SMTP round trip for it. Queue it the day a worker is supervised.
+        Mail::raw(
+            "Il codice per confermare la tua nuova email è {$code}.\n"
+            .'Scade tra 10 minuti.',
+            fn (Message $message) => $message->to($email)
+                ->subject('Conferma la tua nuova email'),
+        );
+
+        return response()->noContent(Response::HTTP_ACCEPTED);
+    }
+
+    /**
+     * Step two of "modifica email": the code typed back from the new mailbox.
+     *
+     * Redeeming it writes the address and stamps `email_verified_at` — the
+     * mailbox just proved itself. The entry is forgotten either way, so a code
+     * is single-use, and five wrong guesses burn it: six digits are guessable
+     * inside ten minutes otherwise.
+     */
+    public function verifyEmailChange(Request $request)
+    {
+        $request->validate(['code' => ['required', 'digits:6']]);
+
+        $user = $request->user();
+        $key = self::emailChangeKey($user);
+        $pending = Cache::get($key);
+
+        if (! $pending) {
+            throw ValidationException::withMessages([
+                'code' => 'No pending email change: request a new code.',
+            ]);
+        }
+
+        if (! Hash::check($request->input('code'), $pending['code'])) {
+            $pending['attempts']++;
+            if ($pending['attempts'] >= self::EMAIL_CHANGE_MAX_ATTEMPTS) {
+                Cache::forget($key);
+            } else {
+                // The original deadline, not a fresh ten minutes: a wrong guess
+                // must not extend the window it is guessing inside.
+                Cache::put($key, $pending, $pending['expires_at']);
+            }
+
+            throw ValidationException::withMessages(['code' => 'The code is not valid.']);
+        }
+
+        Cache::forget($key);
+        $user->update([
+            'email' => $pending['email'],
+            'email_verified_at' => now(),
+        ]);
+
+        return new UserResource($user->fresh());
+    }
+
+    /**
+     * One pending email change per account: a second request replaces the
+     * first, so an abandoned one cannot be redeemed later.
+     */
+    private static function emailChangeKey(User $user): string
+    {
+        return 'email-change:'.$user->getKey();
     }
 
     /**

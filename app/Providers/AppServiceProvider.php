@@ -63,6 +63,12 @@ class AppServiceProvider extends ServiceProvider
         // Open to the public and it writes a tenant per call, so it is throttled by IP.
         RateLimiter::for('register', fn (Request $request) => Limit::perMinute(3)->by($request->ip()));
 
+        // Both halves of "modifica email" (080): one mails a code to an address
+        // the caller types, the other redeems a six-digit secret. Per user, so
+        // one account cannot be turned into a mail relay or a guessing loop.
+        RateLimiter::for('email-change', fn (Request $request) => Limit::perMinute(5)
+            ->by($request->user()?->getAuthIdentifier() ?: $request->ip()));
+
         RateLimiter::for('invitations', fn (Request $request) => Limit::perMinute(10)
             ->by($request->user()?->getAuthIdentifier() ?: $request->ip()));
 

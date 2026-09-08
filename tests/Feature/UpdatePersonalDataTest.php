@@ -121,7 +121,12 @@ class UpdatePersonalDataTest extends TestCase
             ->assertOk();
     }
 
-    public function test_it_changes_the_email_with_the_current_password(): void
+    /**
+     * The address only moves through POST /auth/me/email + /verify
+     * (ChangeEmailTest): this endpoint must not be a second, unverified way in,
+     * even with the current password alongside it.
+     */
+    public function test_it_ignores_an_email_sent_to_the_profile_endpoint(): void
     {
         [$user, , $token] = $this->actor();
 
@@ -131,9 +136,9 @@ class UpdatePersonalDataTest extends TestCase
                 'current_password' => 'Password1',
             ])
             ->assertOk()
-            ->assertJsonPath('data.email', 'nuova@gmail.com');
+            ->assertJsonPath('data.email', 'edilcostruzioni@gmail.com');
 
-        $this->assertSame('nuova@gmail.com', $user->fresh()->email);
+        $this->assertSame('edilcostruzioni@gmail.com', $user->fresh()->email);
     }
 
     public function test_it_refuses_a_credential_change_without_the_current_password(): void
@@ -141,11 +146,14 @@ class UpdatePersonalDataTest extends TestCase
         [$user, , $token] = $this->actor();
 
         $this->withToken($token)
-            ->patchJson('/api/auth/me', ['email' => 'nuova@gmail.com'])
+            ->patchJson('/api/auth/me', [
+                'password' => 'Nuova1234',
+                'password_confirmation' => 'Nuova1234',
+            ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('current_password');
 
-        $this->assertSame('edilcostruzioni@gmail.com', $user->fresh()->email);
+        $this->assertTrue(Hash::check('Password1', $user->fresh()->password));
     }
 
     public function test_it_refuses_a_credential_change_with_the_wrong_current_password(): void
@@ -162,32 +170,6 @@ class UpdatePersonalDataTest extends TestCase
             ->assertJsonValidationErrors('current_password');
 
         $this->assertTrue(Hash::check('Password1', $user->fresh()->password));
-    }
-
-    public function test_an_email_another_account_holds_is_rejected(): void
-    {
-        [, , $token] = $this->actor();
-        User::factory()->create(['email' => 'presa@gmail.com']);
-
-        $this->withToken($token)
-            ->patchJson('/api/auth/me', [
-                'email' => 'presa@gmail.com',
-                'current_password' => 'Password1',
-            ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('email');
-    }
-
-    public function test_resubmitting_its_own_email_is_not_a_collision(): void
-    {
-        [, , $token] = $this->actor();
-
-        $this->withToken($token)
-            ->patchJson('/api/auth/me', [
-                'email' => 'edilcostruzioni@gmail.com',
-                'current_password' => 'Password1',
-            ])
-            ->assertOk();
     }
 
     public function test_a_weak_password_is_rejected(): void
