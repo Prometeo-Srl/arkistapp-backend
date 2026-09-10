@@ -1,7 +1,12 @@
 # Prometeo — ER model
 
 Sources: `docs/Prometeo.pdf` (Allegato 1 – Piano delle Attività), the company XD prototype
-(317 screens, "Arkistapp – Sviluppo") and the worker XD prototype (110 screens, "Flusso 1").
+(317 screens, "Arkistapp – Sviluppo"), the worker XD prototype (110 screens, "Flusso 1") and
+`docs/Flowchart Prometeo aggiornato.pdf` (the client's role map, 2025-05-11).
+
+Precedence when they disagree: the flowchart decides **which roles exist and what each one may
+do**, the prototypes decide **behaviour and UI detail**, this document is the model of record.
+What the flowchart settled, and the deltas it introduced, are in §7.
 
 It also folds in the "Struttura Ruoli e Gestione Abbonamenti" notes (4 roles, associated and
 unassociated worker, a company subscription superseding a personal one) — see §3.
@@ -369,8 +374,9 @@ and self-registration (a worker's personal workspace is created by
    notes, not implemented. See §3.
 2. **Acknowledgement signature**: `signature_path` exists, but the prototypes only show a tap
    confirmation. Keep it nullable.
-3. **One user across several companies**: "Cambio profilo" implies an external consultant (say an
-   outsourced RSPP) following more than one company. Modelled; confirm it as a requirement.
+3. ~~**One user across several companies**~~ — **settled** by the flowchart: an external RSPP, ASPP,
+   Medico Competente or RLST holds a membership in every company that appointed them and switches
+   between their archives. Internal vs external is now stored, see §7.
 4. **In-app call**: `SUPPORT_MESSAGE.kind = call_log` records the metadata only — no entity for
    telephony, since the prototype launches the system dialer.
 
@@ -378,3 +384,90 @@ Settled during development, kept here because the sources disagree: the specific
 that clients get "accesso in lettura e scrittura ai propri documenti" and that a client "non avrà
 alcuna possibilità di modifica dei contenuti". The prototypes are more recent and show full write
 access; the client confirmed the prototypes win.
+
+---
+
+## 7. Deltas from the flowchart (settled 2026-09-10)
+
+The role map confirmed most of this model and introduced eight changes. None is implemented yet;
+this section is the specification for that work. Vocabulary is in `CONTEXT.md`, the three decisions
+worth remembering in `docs/adr/`.
+
+### 7.1 Client status gates operator writes
+
+| | |
+|---|---|
+| Schema | `companies.is_prometeo_client` (boolean, default false; **true** when `created_by_operator_id` is set), `companies.client_since` (date, nullable) |
+| Endpoint | `PATCH /companies/{company}/client-status` — operator only, audited |
+| Policy | one `before()` reading one predicate: `true` for read abilities, `true` for writes when `is_prometeo_client`, `false` otherwise |
+
+A non-client company "gestisce tutto in autonomia": Prometeo reads to run the help desk and writes
+nothing. Client status is a commercial relationship, so it is stored, not derived from who
+registered the company. Every cross-tenant operator action goes to `audit_logs`, reads included.
+A file with `visibility = private` is denied to the operator as well — see ADR-0003.
+
+### 7.2 Guest / Ospite
+
+| | |
+|---|---|
+| Schema | `access_grants` gains `invite_token`, `invite_sent_at`, `accepted_at` (`grantee_id` and `invited_email` already exist) |
+| Lifecycle | no account → mailed token link, redeemed on registration, binds `grantee_id`; existing account → `grantee_id` set immediately, plain notice mail |
+| Time limit | the existing `access_grants.expires_at`, one clock for every action, already enforced in `AccessGrant::scopeForUser()` |
+| Surface | `GET/DELETE /companies/{company}/access-grants` (filterable, pending `invited_email` rows included) — no `/guests` resource |
+
+No membership and no `OrgRole`: a guest is grants and nothing else. A grant always names a person,
+never a company, even when the guest is a company. See ADR-0001.
+
+### 7.3 Org chart
+
+| | |
+|---|---|
+| `OrgRoleSeeder` | new role `rlst` — plain, no `min_required`, no `is_unique_per_company` (a company has RLS *or* RLST; "one or the other" is a validation the client has not specified) |
+| `membership_roles.is_external` | boolean. External figures (typically RSPP, ASPP, Medico Competente, RLST) are outside professionals; not derived from "holds memberships in >1 company", which is wrong on day one for a consultant with a single client |
+| `company_memberships.job_title` | string, nullable — the *mansione*, per company, free text beside `department` |
+
+An external figure appears in the *elenco lavoratori* (the DDL needs their profile and their
+appointment document) but is excluded from the training overview and any derived headcount.
+`companies.employees_count` stays a declared profile field, untouched.
+
+### 7.4 Training overview
+
+No new entity. The dashboard is a query over `FILE` + `DOCUMENT_TYPE` expiry grouped by
+`company_memberships.job_title`; `File::recalculateExpiry()` already produces the dates. A
+`Qualification`/`TrainingCourse` catalog waits until the client asks to assign *required* courses
+per mansione, which the flowchart does not.
+
+### 7.5 Notifications
+
+| | |
+|---|---|
+| Mechanism | Laravel Notification classes, `via() = [database, mail, fcm]`. The database channel **is** the history |
+| Schema | drop `notifications.channel`; replace `sent_at` with `mailed_at` and `pushed_at` (both nullable) |
+| History | append-only. `read_at` only — no dismiss, no delete: a history a user can delete is not a history |
+| Endpoints | new `routes/slices/notifications.php`: `GET /notifications` (paginated, `company_id` filter), `POST /notifications/{id}/read`, `POST /notifications/read-all` |
+| Push | new `device_tokens` (`user_id`, `token`, `platform`, `last_seen_at`) via `laravel-notification-channels/fcm`. Registration is idempotent on `token`; prune on FCM's `UNREGISTERED` |
+
+`support_threads.channel` is a different column and keeps its meaning (chat / mail / call).
+
+### 7.6 Preset structures
+
+New `category_templates` and `folder_templates` (nullable parent, `target_workspace_kind`, `icon`,
+`position`), operator-managed. Cloned by `Company::personalFor()` and by business-company creation;
+`PersonalFoldersSeeder` becomes a template seed. No backfill when a template changes later.
+See ADR-0002.
+
+### 7.7 Support queues
+
+`support_threads.topic` + `SupportTopic` ∈ `technical|commercial`, required when a thread opens:
+*assistenza tecnica* and *assistenza commerciale* are two conversations with different operators.
+The AI help-desk channel the flowchart mentions is out of scope — who writes a message is not a
+domain concept.
+
+### 7.8 Confirmed, no change needed
+
+- Per-document visibility in the *area riservata* ("mostrarli al DDL o meno") — `FileVisibility::Private`
+  already returns no access from `EffectiveAccess`, the DDL included.
+- Second employer (`datore_lavoro_secondario`), bulk import (`ImportBatch`), mandatory read
+  confirmation (`ACKNOWLEDGEMENT`), digital forms (`CHECKLIST`), anonymous near misses
+  (`IncidentReport::is_anonymous`), custom icons and labels on categories and folders, and a
+  guest's later self-registration as a Datore di Lavoro (the ordinary path, no conversion flow).

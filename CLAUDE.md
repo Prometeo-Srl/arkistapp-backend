@@ -9,6 +9,7 @@ workplace-safety (D.Lgs 81/08) platform. The consumer is a **single Flutter app*
 role and flow (operator, company, worker) — not one app per role. No Blade UI, no frontend build:
 every endpoint lives under `/api`.
 
+Domain vocabulary: `CONTEXT.md` (glossary — read it before naming a new concept; decisions in `docs/adr/`).
 Domain reference: `docs/er-model.md` (full entity/field reference + open questions),
 `docs/er-model.html` (client-facing diagrams), `docs/Prometeo.pdf` (original spec, read-only source).
 Read `docs/er-model.md` before changing schema or adding a domain concept.
