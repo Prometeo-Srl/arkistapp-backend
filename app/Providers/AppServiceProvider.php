@@ -25,7 +25,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Telescope ships as require-dev, so it is absent from a --no-dev install.
+        if ($this->app->environment('local') && class_exists(TelescopeServiceProvider::class)) {
+            $this->app->register(TelescopeServiceProvider::class);
+        }
     }
 
     /**

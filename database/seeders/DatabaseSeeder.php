@@ -22,10 +22,15 @@ class DatabaseSeeder extends Seeder
             PlanSeeder::class,
         ]);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'type' => UserType::PrometeoOperator,
-        ]);
+        // The reference seeders above are idempotent (updateOrCreate) and run on every
+        // deploy. This one is not safe outside local: it mints a cross-tenant operator
+        // with a factory password.
+        if (! app()->isProduction()) {
+            User::factory()->create([
+                'name' => 'Test User',
+                'email' => 'test@example.com',
+                'type' => UserType::PrometeoOperator,
+            ]);
+        }
     }
 }
