@@ -18,12 +18,11 @@ class ChecklistResource extends JsonResource
             'title' => $this->title,
             'description' => $this->description,
             'status' => $this->status,
-            'frequency' => $this->frequency,
-            'due_at' => $this->due_at?->toIso8601String(),
             'published_at' => $this->published_at?->toIso8601String(),
             'created_by_id' => $this->created_by_id,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+            'created_by' => new UserResource($this->whenLoaded('createdBy')),
             'sections' => ChecklistSectionResource::collection($this->whenLoaded('sections')),
             'assignments' => ChecklistAssignmentResource::collection($this->whenLoaded('assignments')),
         ];

@@ -202,14 +202,12 @@ class MonitorBoardApiTest extends TestCase
         ]);
         ChecklistAssignment::factory()->create([
             'checklist_id' => $checklist->id,
-            'assignee_type' => GranteeType::User,
-            'assignee_id' => $a->id,
+            'assignee_user_id' => $a->id,
             'status' => AssignmentStatus::Completed,
         ]);
         ChecklistAssignment::factory()->create([
             'checklist_id' => $checklist->id,
-            'assignee_type' => GranteeType::User,
-            'assignee_id' => $b->id,
+            'assignee_user_id' => $b->id,
             'status' => AssignmentStatus::Pending,
         ]);
 

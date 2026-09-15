@@ -1,6 +1,6 @@
 # 0001 — Checklist builder, condivisione and compilazione
 
-Status: open
+Status: done
 Source: XD prototype screens in `docs/app/xd/`, the designer's notes, and a grilling session on
 2026-09-15. Decisions recorded in ADR-0004 and ADR-0005; vocabulary in `CONTEXT.md`.
 

@@ -2,6 +2,13 @@
 
 namespace App\Enums;
 
+/**
+ * The five answer shapes the builder offers: scelta singola, scelta multipla,
+ * descrizione, data, orario.
+ *
+ * There is no Image type - an image on a question is decoration the author pins
+ * to it (`image_path`), not a question - and no Number: Text covers it.
+ */
 enum QuestionType: string
 {
     case SingleChoice = 'single_choice';
@@ -9,8 +16,6 @@ enum QuestionType: string
     case Text = 'text';
     case Date = 'date';
     case Time = 'time';
-    case Image = 'image';
-    case Number = 'number';
 
     public function usesOptions(): bool
     {

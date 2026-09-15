@@ -20,7 +20,6 @@ class StoreChecklistRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'frequency' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

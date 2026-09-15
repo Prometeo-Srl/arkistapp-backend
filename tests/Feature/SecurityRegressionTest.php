@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Enums\GranteeType;
 use App\Enums\MembershipStatus;
 use App\Enums\QuestionType;
 use App\Models\Category;
@@ -15,7 +14,6 @@ use App\Models\Company;
 use App\Models\CompanyMembership;
 use App\Models\Folder;
 use App\Models\Invitation;
-use App\Models\OrgRole;
 use App\Models\User;
 use Database\Seeders\OrgRoleSeeder;
 use Database\Seeders\PlanSeeder;
@@ -161,7 +159,11 @@ class SecurityRegressionTest extends TestCase
         ])->assertStatus(429);
     }
 
-    public function test_an_archived_member_loses_role_derived_access(): void
+    /**
+     * Archiving a membership must end every permission derived from it, an
+     * assegnazione included: leaving the company ends the obligation with it.
+     */
+    public function test_an_archived_member_loses_access_to_their_assignments(): void
     {
         $worker = User::factory()->create();
         $company = Company::factory()->create();
@@ -169,14 +171,11 @@ class SecurityRegressionTest extends TestCase
             'company_id' => $company->id,
             'user_id' => $worker->id,
         ]);
-        $preposto = OrgRole::where('code', 'preposto')->firstOrFail();
-        $membership->orgRoles()->attach($preposto);
 
-        $checklist = Checklist::factory()->create(['company_id' => $company->id]);
+        $checklist = Checklist::factory()->published()->create(['company_id' => $company->id]);
         $assignment = ChecklistAssignment::factory()->create([
             'checklist_id' => $checklist->id,
-            'assignee_type' => GranteeType::OrgRole,
-            'assignee_id' => $preposto->id,
+            'assignee_user_id' => $worker->id,
         ]);
 
         $membership->update(['status' => MembershipStatus::Archived]);
@@ -185,6 +184,7 @@ class SecurityRegressionTest extends TestCase
 
         $this->getJson('/api/my/checklists')->assertOk()->assertJsonCount(0, 'data');
         $this->postJson("/api/assignments/{$assignment->id}/start")->assertForbidden();
+        $this->getJson("/api/checklists/{$checklist->id}")->assertForbidden();
     }
 
     public function test_a_company_without_a_subscription_reports_none_instead_of_failing(): void
@@ -213,8 +213,7 @@ class SecurityRegressionTest extends TestCase
         ]);
         $assignment = ChecklistAssignment::factory()->create([
             'checklist_id' => $checklist->id,
-            'assignee_type' => GranteeType::User,
-            'assignee_id' => $worker->id,
+            'assignee_user_id' => $worker->id,
         ]);
 
         Sanctum::actingAs($worker);
@@ -232,5 +231,93 @@ class SecurityRegressionTest extends TestCase
             1,
             ChecklistSubmission::where('checklist_assignment_id', $assignment->id)->count()
         );
+    }
+
+    /**
+     * A checklist belongs to one tenant, and an id from another one must be a 404
+     * rather than a 403: telling the caller the row exists is already a leak.
+     */
+    public function test_a_checklist_from_another_tenant_is_unreachable(): void
+    {
+        [$admin, $company] = $this->adminOfNewCompany();
+        $stranger = Checklist::factory()->published()->create();
+        $assignment = ChecklistAssignment::factory()->create(['checklist_id' => $stranger->id]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson("/api/checklists/{$stranger->id}")->assertForbidden();
+        $this->getJson("/api/checklists/{$stranger->id}/pdf")->assertForbidden();
+        $this->putJson("/api/checklists/{$stranger->id}/structure", ['sections' => []])->assertForbidden();
+        $this->postJson("/api/assignments/{$assignment->id}/submit", [
+            'answers' => [['question_id' => 1, 'value_text' => 'x']],
+        ])->assertForbidden();
+    }
+
+    /** The author list is an author list, not the same list filtered per caller. */
+    public function test_a_non_author_member_is_refused_the_company_checklist_list(): void
+    {
+        [$admin, $company] = $this->adminOfNewCompany();
+        $worker = User::factory()->create();
+        CompanyMembership::factory()->create(['company_id' => $company->id, 'user_id' => $worker->id]);
+
+        Sanctum::actingAs($worker);
+
+        $this->getJson("/api/companies/{$company->id}/checklists")->assertForbidden();
+    }
+
+    /** Nobody answers in somebody else's name, an author included. */
+    public function test_an_assignment_can_only_be_answered_by_the_person_it_names(): void
+    {
+        [$admin, $company] = $this->adminOfNewCompany();
+        $assignee = User::factory()->create();
+        $intruder = User::factory()->create();
+        foreach ([$assignee, $intruder] as $user) {
+            CompanyMembership::factory()->create(['company_id' => $company->id, 'user_id' => $user->id]);
+        }
+
+        $checklist = Checklist::factory()->published()->create(['company_id' => $company->id]);
+        $section = ChecklistSection::factory()->create(['checklist_id' => $checklist->id]);
+        $question = ChecklistQuestion::factory()->create([
+            'checklist_section_id' => $section->id,
+            'type' => QuestionType::Text,
+        ]);
+        $assignment = ChecklistAssignment::factory()->create([
+            'checklist_id' => $checklist->id,
+            'assignee_user_id' => $assignee->id,
+        ]);
+
+        $payload = ['answers' => [['question_id' => $question->id, 'value_text' => 'per conto suo']]];
+
+        Sanctum::actingAs($intruder);
+        $this->postJson("/api/assignments/{$assignment->id}/submit", $payload)->assertForbidden();
+
+        // Not even the admin who shared it.
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/assignments/{$assignment->id}/submit", $payload)->assertForbidden();
+    }
+
+    /** The sniffed type decides, not the extension the caller typed. */
+    public function test_a_disguised_upload_is_refused_as_a_checklist_image(): void
+    {
+        [$admin, $company] = $this->adminOfNewCompany();
+        $checklist = Checklist::factory()->create(['company_id' => $company->id]);
+
+        Sanctum::actingAs($admin);
+
+        // UploadedFile::fake() derives the MIME type from the extension, so a
+        // renamed payload needs a real file for finfo to sniff.
+        $path = tempnam(sys_get_temp_dir(), 'probe').'.jpg';
+        file_put_contents($path, '<?php echo 1; ?>');
+
+        $this->postJson("/api/checklists/{$checklist->id}/images", [
+            'image' => new UploadedFile($path, 'estintore.jpg', null, null, true),
+        ])->assertStatus(422);
+
+        @unlink($path);
+
+        // And a real file of a type the builder does not render.
+        $this->postJson("/api/checklists/{$checklist->id}/images", [
+            'image' => UploadedFile::fake()->create('verbale.pdf', 10, 'application/pdf'),
+        ])->assertStatus(422);
     }
 }

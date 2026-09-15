@@ -19,8 +19,8 @@ class ChecklistAnswerResource extends JsonResource
             'value_text' => $this->value_text,
             'value_date' => $this->value_date?->toDateString(),
             'value_time' => $this->value_time,
-            'value_number' => $this->value_number,
             'selected_option_ids' => $this->selected_option_ids,
+            'note_text' => $this->note_text,
             'attachment_path' => $this->attachment_path,
             'question' => new ChecklistQuestionResource($this->whenLoaded('question')),
         ];

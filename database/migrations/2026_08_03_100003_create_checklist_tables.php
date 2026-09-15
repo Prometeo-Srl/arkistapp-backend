@@ -14,63 +14,76 @@ return new class extends Migration
             $table->string('title');
             $table->text('description')->nullable();
             $table->string('status')->default('draft')->index();
-            $table->string('frequency')->nullable();
-            $table->timestamp('due_at')->nullable();
             $table->foreignId('created_by_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('published_at')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });
 
+        // The three structure tables carry a uuid the *client* generated. It is what
+        // PUT /checklists/{checklist}/structure reconciles on, and what makes a retried
+        // save idempotent rather than duplicating the tree (ADR-0004).
+        //
+        // They are hard deleted, never soft: that only ever happens to a bozza, because
+        // sharing freezes the structure (ADR-0005).
         Schema::create('checklist_sections', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('checklist_id')->constrained()->cascadeOnDelete();
-            $table->string('title');
+            // Rich text, sanitised on write to <b> <i> <u> <br>.
+            $table->text('title');
             $table->unsignedSmallInteger('position')->default(0);
         });
 
-        // The prototype's drag & drop rewrites (checklist_section_id, position).
+        // The prototype's drag & drop rewrites (checklist_section_id, position), including
+        // across sections - both arrive in one reconciler payload.
         Schema::create('checklist_questions', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('checklist_section_id')->constrained()->cascadeOnDelete();
-            $table->string('label');
+            $table->text('label');
             $table->text('help_text')->nullable();
             $table->string('type');
+            // An image the *author* pins to the question, distinct from allows_attachment,
+            // which lets the *filler* upload evidence.
+            $table->string('image_path')->nullable();
             $table->boolean('is_required')->default(false);
             $table->boolean('allows_attachment')->default(false);
+            // The prototype's "spazio note": a free-text box under the options.
+            $table->boolean('allows_note')->default(false);
             $table->unsignedSmallInteger('position')->default(0);
         });
 
         Schema::create('checklist_options', function (Blueprint $table) {
             $table->id();
+            $table->uuid()->unique();
             $table->foreignId('checklist_question_id')->constrained()->cascadeOnDelete();
             $table->string('label');
             $table->string('image_path')->nullable();
             $table->unsignedSmallInteger('position')->default(0);
-            $table->boolean('is_non_conformity')->default(false);
         });
 
         Schema::create('checklist_assignments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('checklist_id')->constrained()->cascadeOnDelete();
-            $table->string('assignee_type');
-            $table->unsignedBigInteger('assignee_id');
+            // Named people only: a role-targeted assignment cannot answer "who still owes
+            // me this?" once the role's membership changes.
+            $table->foreignId('assignee_user_id')->constrained('users')->cascadeOnDelete();
             $table->timestamp('due_at')->nullable();
             $table->string('status')->default('pending')->index();
             $table->foreignId('assigned_by_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 
-            $table->index(['assignee_type', 'assignee_id'], 'checklist_assignments_assignee_index');
+            $table->index(['checklist_id', 'assignee_user_id']);
         });
 
         Schema::create('checklist_submissions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('checklist_assignment_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('checklist_assignment_id')->constrained()->cascadeOnDelete()->unique();
             $table->foreignId('submitted_by_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('started_at')->nullable();
             $table->timestamp('submitted_at')->nullable();
-            $table->string('status')->default('draft');
-            $table->string('export_pdf_path')->nullable();
+            $table->string('status')->default('in_progress');
             $table->timestamps();
         });
 
@@ -81,8 +94,9 @@ return new class extends Migration
             $table->text('value_text')->nullable();
             $table->date('value_date')->nullable();
             $table->time('value_time')->nullable();
-            $table->decimal('value_number', 12, 4)->nullable();
             $table->json('selected_option_ids')->nullable();
+            // The filler's note, when the question allows one.
+            $table->text('note_text')->nullable();
             $table->string('attachment_path')->nullable();
             $table->timestamps();
 

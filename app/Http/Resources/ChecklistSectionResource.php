@@ -14,6 +14,8 @@ class ChecklistSectionResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            // The builder reconciles on this, not on the server id.
+            'uuid' => $this->uuid,
             'checklist_id' => $this->checklist_id,
             'title' => $this->title,
             'position' => $this->position,

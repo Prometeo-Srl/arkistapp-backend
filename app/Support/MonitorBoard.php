@@ -168,10 +168,13 @@ final class MonitorBoard
     private static function checklistItems(Company $company): array
     {
         return $company->checklists()
-            // A draft has no assignees yet: it belongs to the builder, not the board.
+            // A bozza has no assignees yet: it belongs to the builder, not the board.
             ->whereNotNull('published_at')
             ->withCount([
-                'assignments as roster_count',
+                // A withdrawn assegnazione is nobody's outstanding work any more, so it
+                // leaves the roster rather than sitting in it permanently unfinished.
+                'assignments as roster_count' => fn (Builder $query) => $query
+                    ->where('status', '!=', AssignmentStatus::Cancelled),
                 'assignments as completed_count' => fn (Builder $query) => $query
                     ->where('status', AssignmentStatus::Completed),
             ])
@@ -265,16 +268,16 @@ final class MonitorBoard
     private static function checklistDetail(Company $company, int $checklistId): ?array
     {
         $checklist = $company->checklists()
-            ->with(['assignments.assigneeUser', 'assignments.assigneeOrgRole'])
+            ->with(['assignments.assigneeUser'])
             ->find($checklistId);
 
         if ($checklist === null) {
             return null;
         }
 
-        [$done, $pending] = $checklist->assignments->partition(
-            fn (ChecklistAssignment $assignment) => $assignment->status === AssignmentStatus::Completed
-        );
+        [$done, $pending] = $checklist->assignments
+            ->reject(fn (ChecklistAssignment $assignment) => $assignment->status === AssignmentStatus::Cancelled)
+            ->partition(fn (ChecklistAssignment $assignment) => $assignment->status === AssignmentStatus::Completed);
         $roles = self::roleLabels($company);
 
         return [
@@ -308,9 +311,8 @@ final class MonitorBoard
     }
 
     /**
-     * One entry per assignment rather than per person: an assignment addressed to an
-     * org role carries a single status for the role, so its holders cannot be split
-     * between the two lists. It is listed under the role's own name.
+     * One entry per assegnazione, which is one per named person: a checklist is
+     * shared with people the DDL picked by hand, never with an org role.
      *
      * @param  Collection<int, ChecklistAssignment>  $assignments
      * @param  array<int, string>  $roles
@@ -319,18 +321,9 @@ final class MonitorBoard
     private static function assignees(Collection $assignments, array $roles): array
     {
         return $assignments
+            ->filter(fn (ChecklistAssignment $assignment) => $assignment->assigneeUser !== null)
             ->map(function (ChecklistAssignment $assignment) use ($roles) {
                 $user = $assignment->assigneeUser;
-
-                if ($user === null) {
-                    $role = $assignment->assigneeOrgRole;
-
-                    return [
-                        'user_id' => null,
-                        'name' => $role?->label ?? 'assegnatario',
-                        'role_label' => 'ruolo',
-                    ];
-                }
 
                 return [
                     'user_id' => $user->getKey(),

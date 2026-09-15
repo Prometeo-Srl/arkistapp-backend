@@ -68,6 +68,27 @@ final class UploadedDocument
     ];
 
     /**
+     * The images a checklist author pins to a question or an option, and the photo
+     * a filler attaches as evidence. Pictures only: nothing in the builder renders
+     * a document, and no SVG, for the same reason as above.
+     *
+     * @var array<int, string>
+     */
+    public const IMAGE_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/heic',
+        'image/heif',
+    ];
+
+    /**
+     * 10 MB, against the 1 GB the archive accepts: a builder image is a phone photo
+     * that has to render inside a question row and inside a PDF.
+     */
+    public const IMAGE_MAX_KILOBYTES = 10240;
+
+    /**
      * The cap the app promises the user ("invia file fino a 1 gb", prototype 260).
      *
      * PHP refuses a body over its own post_max_size before validation ever runs,

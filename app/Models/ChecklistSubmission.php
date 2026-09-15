@@ -9,10 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable([
-    'checklist_assignment_id', 'submitted_by_id', 'started_at',
-    'submitted_at', 'status', 'export_pdf_path',
-])]
+#[Fillable(['checklist_assignment_id', 'submitted_by_id', 'started_at', 'submitted_at', 'status'])]
 class ChecklistSubmission extends Model
 {
     use HasFactory;

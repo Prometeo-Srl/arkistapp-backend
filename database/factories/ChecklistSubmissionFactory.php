@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\SubmissionStatus;
 use App\Models\ChecklistAssignment;
 use App\Models\ChecklistSubmission;
 use App\Models\User;
@@ -22,7 +23,7 @@ class ChecklistSubmissionFactory extends Factory
             'submitted_by_id' => User::factory(),
             'started_at' => null,
             'submitted_at' => null,
-            'status' => 'draft',
+            'status' => SubmissionStatus::InProgress,
         ];
     }
 
@@ -30,7 +31,7 @@ class ChecklistSubmissionFactory extends Factory
     {
         return $this->state(fn () => [
             'started_at' => now(),
-            'status' => 'in_progress',
+            'status' => SubmissionStatus::InProgress,
         ]);
     }
 }

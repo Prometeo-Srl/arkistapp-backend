@@ -14,11 +14,11 @@ class ChecklistOptionResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'uuid' => $this->uuid,
             'checklist_question_id' => $this->checklist_question_id,
             'label' => $this->label,
             'image_path' => $this->image_path,
             'position' => $this->position,
-            'is_non_conformity' => $this->is_non_conformity,
         ];
     }
 }

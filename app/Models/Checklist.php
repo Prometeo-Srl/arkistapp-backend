@@ -10,10 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable([
-    'company_id', 'title', 'description', 'status',
-    'frequency', 'due_at', 'created_by_id', 'published_at',
-])]
+#[Fillable(['company_id', 'title', 'description', 'status', 'created_by_id', 'published_at'])]
 class Checklist extends Model
 {
     use HasFactory;
@@ -23,9 +20,14 @@ class Checklist extends Model
     {
         return [
             'status' => ChecklistStatus::class,
-            'due_at' => 'datetime',
             'published_at' => 'datetime',
         ];
+    }
+
+    /** A bozza: the only state in which the structure accepts a write (ADR-0005). */
+    public function isDraft(): bool
+    {
+        return $this->status === ChecklistStatus::Draft;
     }
 
     public function company(): BelongsTo

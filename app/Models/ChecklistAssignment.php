@@ -3,17 +3,13 @@
 namespace App\Models;
 
 use App\Enums\AssignmentStatus;
-use App\Enums\GranteeType;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable([
-    'checklist_id', 'assignee_type', 'assignee_id',
-    'due_at', 'status', 'assigned_by_id',
-])]
+#[Fillable(['checklist_id', 'assignee_user_id', 'due_at', 'status', 'assigned_by_id'])]
 class ChecklistAssignment extends Model
 {
     use HasFactory;
@@ -21,7 +17,6 @@ class ChecklistAssignment extends Model
     protected function casts(): array
     {
         return [
-            'assignee_type' => GranteeType::class,
             'status' => AssignmentStatus::class,
             'due_at' => 'datetime',
         ];
@@ -34,12 +29,7 @@ class ChecklistAssignment extends Model
 
     public function assigneeUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'assignee_id');
-    }
-
-    public function assigneeOrgRole(): BelongsTo
-    {
-        return $this->belongsTo(OrgRole::class, 'assignee_id');
+        return $this->belongsTo(User::class, 'assignee_user_id');
     }
 
     public function assignedBy(): BelongsTo

@@ -15,8 +15,7 @@ class ChecklistAssignmentResource extends JsonResource
         return [
             'id' => $this->id,
             'checklist_id' => $this->checklist_id,
-            'assignee_type' => $this->assignee_type,
-            'assignee_id' => $this->assignee_id,
+            'assignee_user_id' => $this->assignee_user_id,
             'due_at' => $this->due_at?->toIso8601String(),
             'status' => $this->status,
             'assigned_by_id' => $this->assigned_by_id,
@@ -24,7 +23,6 @@ class ChecklistAssignmentResource extends JsonResource
             'checklist' => new ChecklistResource($this->whenLoaded('checklist')),
             'submission' => new ChecklistSubmissionResource($this->whenLoaded('submission')),
             'assignee_user' => new UserResource($this->whenLoaded('assigneeUser')),
-            'assignee_org_role' => new OrgRoleResource($this->whenLoaded('assigneeOrgRole')),
         ];
     }
 }

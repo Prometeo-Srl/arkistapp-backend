@@ -23,7 +23,7 @@ class ChecklistAnswerFactory extends Factory
             'value_text' => fake()->sentence(),
             'value_date' => null,
             'value_time' => null,
-            'value_number' => null,
+            'note_text' => null,
             'selected_option_ids' => null,
             'attachment_path' => null,
         ];

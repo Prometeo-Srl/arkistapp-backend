@@ -20,7 +20,6 @@ class UpdateChecklistRequest extends FormRequest
         return [
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            'frequency' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 }

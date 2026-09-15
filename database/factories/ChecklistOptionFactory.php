@@ -21,7 +21,6 @@ class ChecklistOptionFactory extends Factory
             'label' => fake()->word(),
             'image_path' => null,
             'position' => 0,
-            'is_non_conformity' => false,
         ];
     }
 }

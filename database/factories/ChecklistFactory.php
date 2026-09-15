@@ -23,11 +23,11 @@ class ChecklistFactory extends Factory
             'title' => fake()->sentence(3),
             'description' => fake()->paragraph(),
             'status' => ChecklistStatus::Draft,
-            'frequency' => fake()->randomElement(['weekly', 'monthly', 'quarterly', null]),
             'created_by_id' => User::factory(),
         ];
     }
 
+    /** Shared, and therefore frozen: no structural write is accepted any more. */
     public function published(): static
     {
         return $this->state(fn () => [

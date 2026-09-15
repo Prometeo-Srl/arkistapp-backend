@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'checklist_submission_id', 'checklist_question_id', 'value_text', 'value_date',
-    'value_time', 'value_number', 'selected_option_ids', 'attachment_path',
+    'value_time', 'selected_option_ids', 'note_text', 'attachment_path',
 ])]
 class ChecklistAnswer extends Model
 {
@@ -19,7 +19,6 @@ class ChecklistAnswer extends Model
     {
         return [
             'value_date' => 'date',
-            'value_number' => 'decimal:4',
             'selected_option_ids' => 'array',
         ];
     }

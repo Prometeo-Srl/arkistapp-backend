@@ -22,8 +22,10 @@ class ChecklistQuestionFactory extends Factory
             'label' => fake()->sentence(4),
             'help_text' => null,
             'type' => QuestionType::Text,
+            'image_path' => null,
             'is_required' => true,
             'allows_attachment' => false,
+            'allows_note' => false,
             'position' => 0,
         ];
     }
