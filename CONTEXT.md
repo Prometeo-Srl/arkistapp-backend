@@ -130,9 +130,33 @@ _Avoid_: due date, deadline
 ### Monitoring
 
 **Checklist**:
-A form the company fills in periodically to record a safety check. Assigned to figures or people,
-answered as a submission.
-_Avoid_: form, survey, questionnaire
+A questionnaire the DDL writes so named people can record a safety check. It is authored once and
+shared once; it does not recur on its own and it carries no right answers — nothing in it is
+scored, passed or failed.
+_Avoid_: form, survey, questionnaire, audit
+
+**Bozza**:
+A checklist that has been saved but never shared. It exists only for the people who may author
+checklists, it can still be changed freely, and it is the only state in which a checklist can be
+changed at all.
+_Avoid_: unpublished, unsent, work in progress
+
+**Condivisione**:
+The single act that ends authoring: the DDL picks the people who must answer and confirms. It
+publishes the checklist and creates their assignments together — a checklist is never published
+without being given to someone. Its questions are frozen from that moment.
+_Avoid_: publishing, sending, distribution
+
+**Assegnazione**:
+One named person's obligation to answer one shared checklist. Always a person, never a figure in
+the org chart: the DDL chooses the recipients by hand from the workspace's members. Withdrawing an
+assignment cancels the obligation and keeps whatever was already answered.
+_Avoid_: task, invitation, delivery
+
+**Compilazione**:
+One person's answers to one checklist, recorded in a single sitting and handed over complete.
+There is no half-finished compilazione to come back to.
+_Avoid_: submission, response, entry
 
 **Near miss**:
 An event that could have caused harm and did not, reported so the company can act on it.

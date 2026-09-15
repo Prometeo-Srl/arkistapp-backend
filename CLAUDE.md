@@ -118,3 +118,16 @@ reach the API.
 
 Code, comments and commits in English. Domain terms and user-facing strings from the spec/prototypes
 stay Italian (Monitora attività, Cambio profilo, Custode/Editor/Visualizzatore).
+
+## Agent skills
+
+### Issue tracker
+
+Specs and issues are committed markdown under `docs/specs/`, numbered like the ADRs. There is no
+`gh` CLI on this machine, so GitHub Issues is not a surface any skill should write to. See
+`docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` (glossary) and `docs/adr/` at the root, with `docs/er-model.md` as the
+entity reference. See `docs/agents/domain.md`.
