@@ -400,6 +400,11 @@ outside CI, and without them the fix never reaches the running server:
 3. **PHP and Postgres reach end of life.** `php8.5` and `postgres:18` stop
    receiving security patches on a published date; no automation will tell you.
    Put both EOL dates in the client's calendar at handover.
+4. **If the repo is public, the weekly `composer audit` cron stops** after 60
+   days without repository activity — GitHub disables scheduled workflows in
+   public repos only. Dependabot alerts and the auto-merge workflow are
+   unaffected: neither is cron-driven. Keeping the repo private avoids this
+   entirely; otherwise the alerts, not the cron, are what you rely on.
 
 What is deliberately *not* automated: a major version bump that is not a
 security fix, and any `laravel/framework` update. Those wait for a human. If a
