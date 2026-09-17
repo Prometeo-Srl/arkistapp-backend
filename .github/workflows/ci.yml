@@ -70,9 +70,11 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
-    # Non-blocking: a fresh advisory in a transitive package should not wall off
-    # an unrelated hotfix. Dependabot opens the PR that actually fixes it.
-    continue-on-error: true
+    # Non-blocking on a pull request: a fresh advisory in a transitive package
+    # should not wall off an unrelated hotfix. Blocking everywhere else — the
+    # weekly cron is the only thing still watching if nobody is, and a failed
+    # scheduled run is what emails the repo admins.
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
 
     steps:
       - uses: actions/checkout@v5

@@ -377,6 +377,30 @@ Once documents live in Spaces, turn on bucket versioning there too: the app
 retains `FileVersion` rows, but nothing protects against an accidental object
 delete.
 
+## Staying patched without a maintainer
+
+The repo patches itself: Dependabot opens a PR the moment an advisory names a
+package we depend on, `.github/workflows/dependabot-auto-merge.yml` waits for
+the suite and merges it. That closes CVEs **in the code**. Three things sit
+outside CI, and without them the fix never reaches the running server:
+
+1. **Forge auto-deploy must be on** for the site (Forge → Site → *Quick Deploy*).
+   Otherwise a merged security fix sits in `develop` and production keeps
+   serving the vulnerable version. This is the single most important switch on
+   this page — everything upstream of it is wasted without it.
+2. **Unattended security upgrades on the droplet.** Composer advisories say
+   nothing about OpenSSL, nginx or the kernel. On the Ubuntu droplet:
+   `apt install unattended-upgrades` and enable the security origin only.
+3. **PHP and Postgres reach end of life.** `php8.5` and `postgres:18` stop
+   receiving security patches on a published date; no automation will tell you.
+   Put both EOL dates in the client's calendar at handover.
+
+What is deliberately *not* automated: a major version bump that is not a
+security fix, and any `laravel/framework` update. Those wait for a human. If a
+CVE fix cannot be merged automatically the auto-merge job fails, and a failed
+run emails the repo admins — which is why the admin list must be a client
+address, not the departing maintainer's.
+
 ## Handover
 
 The person who set this up is leaving. What the next maintainer needs, and
@@ -400,6 +424,9 @@ Known work left, in the order it bites:
 3. **Reconcile the upload ceiling** across `MAX_KILOBYTES`, nginx and php.ini.
 4. **Move documents to Spaces** — cheap now, expensive later.
 5. **Register the Stripe webhook** for each environment.
+6. **Turn on Quick Deploy and unattended-upgrades**, and point the repo admin
+   email at the client — see *Staying patched without a maintainer*. Until then
+   the automated CVE fixes stop at `develop`.
 
 `CLAUDE.md` describes `routes/api.php` as requiring eight slice files; there
 are now nine (`stripe.php`). Worth correcting when someone next touches it.

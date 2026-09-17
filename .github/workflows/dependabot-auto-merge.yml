@@ -5,6 +5,8 @@ on: pull_request
 permissions:
   contents: write
   pull-requests: write
+  # alert-lookup below reads the advisory behind the PR.
+  security-events: read
 
 jobs:
   auto-merge:
@@ -15,17 +17,26 @@ jobs:
       - name: Fetch update metadata
         id: meta
         uses: dependabot/fetch-metadata@v2
+        with:
+          # Populates ghsa-id/cvss, which is how a security fix is told apart
+          # from a routine bump below.
+          alert-lookup: true
+          compat-lookup: false
 
-      # Majors are already ignored in dependabot.yml; this is the second gate in
-      # case one arrives through a security update, which ignores that filter.
-      # A framework bump touches everything — it stays open for a human to read.
-      # `gh pr merge --auto` would merge immediately here: auto-merge only waits
-      # when branch protection requires a check, and the org plan does not allow
-      # protecting develop. So wait for CI in this job, then merge outright.
-      - name: Merge patch and minor once CI passes
+      # A CVE fix is the one thing that must land unattended, so it merges at any
+      # semver level and for any package — the minimum patched version is often a
+      # major, and gating on that is how an abandoned repo stays vulnerable.
+      # Everything else is housekeeping and keeps the cautious rules: no majors,
+      # and the framework waits for a human.
+      #
+      # `gh pr merge --auto` is not used: auto-merge only waits when branch
+      # protection requires a check, which the org plan does not allow on
+      # develop. Without that it merges ahead of CI. So wait here, then merge.
+      - name: Merge once CI passes
         if: >-
-          steps.meta.outputs.update-type != 'version-update:semver-major' &&
-          !contains(steps.meta.outputs.dependency-names, 'laravel/framework')
+          steps.meta.outputs.ghsa-id != '' ||
+          (steps.meta.outputs.update-type != 'version-update:semver-major' &&
+           !contains(steps.meta.outputs.dependency-names, 'laravel/framework'))
         run: |
           # Give CI a moment to register its checks; `gh pr checks` fails when
           # none exist yet, which would read as a green light.
@@ -35,3 +46,19 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # An advisory whose fix cannot merge is the failure mode this whole file
+      # exists to prevent. Make it loud instead of letting it sit in the PR list:
+      # a failed run emails the repo admins, which is the only channel left once
+      # nobody is reading pull requests.
+      - name: Fail when a security fix needs a human
+        if: >-
+          steps.meta.outputs.ghsa-id != '' &&
+          failure()
+        run: |
+          echo "::error::Security fix for ${{ steps.meta.outputs.dependency-names }}" \
+               "(${{ steps.meta.outputs.ghsa-id }}, CVSS ${{ steps.meta.outputs.cvss }})" \
+               "could not be merged automatically. $PR_URL"
+          exit 1
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
