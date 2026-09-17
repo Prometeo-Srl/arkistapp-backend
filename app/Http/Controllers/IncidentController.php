@@ -103,7 +103,11 @@ class IncidentController extends Controller
 
     public function storeAttachment(StoreIncidentAttachmentRequest $request, IncidentReport $incident)
     {
-        $this->authorize('view', $incident);
+        // Appending an attachment writes to a D.Lgs 81/08 record and ships inside
+        // the official PDF, so it follows the same admin-or-draft-reporter rule as
+        // every other write. `view` let any member of the tenant amend a report
+        // someone else filed and closed.
+        $this->authorize('update', $incident);
 
         $upload = $request->file('file');
         $path = $upload->store('incidents');

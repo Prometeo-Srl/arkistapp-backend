@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Enums\FileVisibility;
-use App\Enums\MediaKind;
 use App\Support\UploadedDocument;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -29,7 +28,9 @@ class StoreFileRequest extends FormRequest
             'issued_at' => ['nullable', 'date'],
             'requires_acknowledgement' => ['nullable', 'boolean'],
             'requires_signature' => ['nullable', 'boolean'],
-            'media_kind' => ['nullable', Rule::enum(MediaKind::class)],
+            // media_kind is not accepted here: the controller derives it from the
+            // sniffed mime type. Leaving the rule in only advertised an input the
+            // server must ignore.
             // "configura file" (prototype 235–236) runs before the upload, so the
             // two fields that used to arrive by PATCH may come with the bytes.
             // Left out, expires_at is derived from the document type as usual.

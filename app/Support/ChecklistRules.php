@@ -20,6 +20,15 @@ use Illuminate\Validation\Rule;
 final class ChecklistRules
 {
     /**
+     * An image path is a name the upload endpoint minted inside its own
+     * directory, never a path the client composes. Without the shape check a
+     * `../` value reaches Storage::path() unnormalised in the PDF view and
+     * embeds any readable image in the app root — another tenant's incident
+     * photo included — in a PDF the caller downloads.
+     */
+    private const IMAGE_PATH_SHAPE = 'regex:/^checklist-images\/[A-Za-z0-9]+\.[A-Za-z0-9]+$/';
+
+    /**
      * @return array<string, array<int, mixed>>
      */
     public static function question(string $prefix = '', bool $keyed = true): array
@@ -29,7 +38,7 @@ final class ChecklistRules
             $prefix.'label' => ['required', 'string', 'max:2000'],
             $prefix.'help_text' => ['nullable', 'string', 'max:2000'],
             $prefix.'type' => ['required', Rule::enum(QuestionType::class)],
-            $prefix.'image_path' => ['nullable', 'string', 'max:255'],
+            $prefix.'image_path' => ['nullable', 'string', 'max:255', self::IMAGE_PATH_SHAPE],
             $prefix.'is_required' => ['sometimes', 'boolean'],
             $prefix.'allows_attachment' => ['sometimes', 'boolean'],
             $prefix.'allows_note' => ['sometimes', 'boolean'],
@@ -47,7 +56,7 @@ final class ChecklistRules
         return [
             ...($keyed ? [$prefix.'uuid' => ['required', 'uuid']] : []),
             $prefix.'label' => ['required', 'string', 'max:255'],
-            $prefix.'image_path' => ['nullable', 'string', 'max:255'],
+            $prefix.'image_path' => ['nullable', 'string', 'max:255', self::IMAGE_PATH_SHAPE],
             $prefix.'position' => [$keyed ? 'required' : 'sometimes', 'integer', 'min:0'],
         ];
     }

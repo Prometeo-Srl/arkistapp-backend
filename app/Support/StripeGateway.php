@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Company;
 use App\Models\Plan;
+use RuntimeException;
 use Stripe\Event;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\StripeClient;
@@ -133,10 +134,18 @@ class StripeGateway
     /** @throws SignatureVerificationException */
     public function parseWebhook(string $payload, string $signature): Event
     {
-        return Webhook::constructEvent(
-            $payload,
-            $signature,
-            (string) config('services.stripe.webhook_secret'),
-        );
+        $secret = (string) config('services.stripe.webhook_secret');
+
+        // Stripe's verifier does not reject an empty secret: it HMACs with ''
+        // and anyone can then forge a valid Stripe-Signature header. .env.example
+        // ships this blank, so a deploy that forgets it would fail open — which
+        // is the one direction a payment webhook must never fail.
+        if ($secret === '') {
+            throw new RuntimeException(
+                'STRIPE_WEBHOOK_SECRET is not set; refusing to accept webhooks unverified.'
+            );
+        }
+
+        return Webhook::constructEvent($payload, $signature, $secret);
     }
 }

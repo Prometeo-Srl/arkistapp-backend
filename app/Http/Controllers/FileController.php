@@ -98,7 +98,11 @@ class FileController extends Controller
         $file = DB::transaction(function () use ($folder, $request, $upload, $documentType, $storagePath) {
             $file = $folder->files()->create([
                 'name' => $request->input('name') ?? $upload->getClientOriginalName(),
-                'media_kind' => $request->input('media_kind') ?? $this->inferMediaKind($upload->getMimeType()),
+                // Always derived from the sniffed type, never from the client:
+                // a caller who declares media_kind=image on a PDF would otherwise
+                // walk that blob straight into Imagick's delegates. storeVersion
+                // has always inferred it; store() trusting input was the outlier.
+                'media_kind' => $this->inferMediaKind($upload->getMimeType()),
                 'mime_type' => $upload->getMimeType(),
                 'size_bytes' => $upload->getSize(),
                 'document_type_id' => $documentType?->getKey(),
@@ -174,7 +178,12 @@ class FileController extends Controller
     {
         $this->authorize('download', $file);
 
-        abort_unless($file->media_kind === MediaKind::Image, 404);
+        // Gate on the sniffed mime recorded at upload, not on media_kind: the
+        // column is a classification, the mime is the evidence.
+        abort_unless(
+            $file->media_kind === MediaKind::Image && str_starts_with((string) $file->mime_type, 'image/'),
+            404
+        );
 
         $version = $file->currentVersion;
         abort_unless($version && Storage::exists($version->storage_path), 404);

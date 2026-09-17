@@ -46,7 +46,7 @@
             @endif
 
             @if ($question->image_path)
-                <img src="{{ \Illuminate\Support\Facades\Storage::path($question->image_path) }}" alt="">
+                <img src="{{ \Illuminate\Support\Facades\Storage::path('checklist-images/'.basename($question->image_path)) }}" alt="">
             @endif
 
             @switch ($question->type)
@@ -57,7 +57,7 @@
                             <span class="box {{ $question->type === \App\Enums\QuestionType::SingleChoice ? 'round' : '' }}"></span>{{ $option->label }}
                         </div>
                         @if ($option->image_path)
-                            <img src="{{ \Illuminate\Support\Facades\Storage::path($option->image_path) }}" alt="">
+                            <img src="{{ \Illuminate\Support\Facades\Storage::path('checklist-images/'.basename($option->image_path)) }}" alt="">
                         @endif
                     @endforeach
                     @break

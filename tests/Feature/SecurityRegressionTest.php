@@ -320,4 +320,64 @@ class SecurityRegressionTest extends TestCase
             'image' => UploadedFile::fake()->create('verbale.pdf', 10, 'application/pdf'),
         ])->assertStatus(422);
     }
+
+    public function test_a_client_cannot_declare_a_pdf_to_be_an_image(): void
+    {
+        Storage::fake();
+        [$admin, $company] = $this->adminOfNewCompany();
+        $folder = Folder::factory()->create([
+            'category_id' => Category::factory()->create(['company_id' => $company->id])->id,
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        // media_kind used to be taken from the request, which walked a PDF past
+        // the thumbnail endpoint's "images only" guard and into Imagick's
+        // delegates. The sniffed type is the only thing that may decide this.
+        $fileId = $this->post('/api/files', [
+            'folder_id' => $folder->id,
+            'media_kind' => 'image',
+            'file' => UploadedFile::fake()->create('payload.pdf', 64, 'application/pdf'),
+        ])->assertCreated()->json('data.id');
+
+        $this->getJson("/api/files/{$fileId}")
+            ->assertOk()
+            ->assertJsonPath('data.media_kind', 'document');
+
+        $this->get("/api/files/{$fileId}/thumbnail")->assertNotFound();
+    }
+
+    public function test_a_checklist_image_path_cannot_escape_its_directory(): void
+    {
+        $admin = User::factory()->create();
+        $company = Company::factory()->create();
+        CompanyMembership::factory()->admin()->create([
+            'company_id' => $company->id,
+            'user_id' => $admin->id,
+        ]);
+        $checklist = Checklist::factory()->create([
+            'company_id' => $company->id,
+            'created_by_id' => $admin->id,
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        // Storage::path() is plain concatenation, and the PDF view renders the
+        // result: a traversing value embedded any readable image in the app root
+        // — another tenant's incident photo included — in the returned PDF.
+        $this->putJson("/api/checklists/{$checklist->id}/structure", [
+            'sections' => [[
+                'uuid' => '11111111-1111-4111-8111-111111111111',
+                'title' => 'Sezione',
+                'position' => 0,
+                'questions' => [[
+                    'uuid' => '22222222-2222-4222-8222-222222222222',
+                    'label' => 'Domanda',
+                    'type' => QuestionType::Text->value,
+                    'position' => 0,
+                    'image_path' => '../incidents/other-tenant.jpg',
+                ]],
+            ]],
+        ])->assertStatus(422)->assertJsonValidationErrors('sections.0.questions.0.image_path');
+    }
 }
