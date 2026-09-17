@@ -1,0 +1,37 @@
+name: Dependabot auto-merge
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch update metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+
+      # Majors are already ignored in dependabot.yml; this is the second gate in
+      # case one arrives through a security update, which ignores that filter.
+      # A framework bump touches everything — it stays open for a human to read.
+      # `gh pr merge --auto` would merge immediately here: auto-merge only waits
+      # when branch protection requires a check, and the org plan does not allow
+      # protecting develop. So wait for CI in this job, then merge outright.
+      - name: Merge patch and minor once CI passes
+        if: >-
+          steps.meta.outputs.update-type != 'version-update:semver-major' &&
+          !contains(steps.meta.outputs.dependency-names, 'laravel/framework')
+        run: |
+          # Give CI a moment to register its checks; `gh pr checks` fails when
+          # none exist yet, which would read as a green light.
+          sleep 30
+          gh pr checks "$PR_URL" --watch --fail-fast --interval 20
+          gh pr merge --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

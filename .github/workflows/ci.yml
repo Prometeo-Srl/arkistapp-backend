@@ -8,6 +8,9 @@ on:
     # Advisories land continuously; catch them without waiting for a push.
     - cron: '0 6 * * 1'
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

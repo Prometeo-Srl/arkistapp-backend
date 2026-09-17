@@ -9,9 +9,12 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     # Patch/minor land as one PR; a major needs a human reading the upgrade guide.
+    # The framework is excluded from the group so it arrives as its own PR — the
+    # auto-merge workflow leaves that one open for a human.
     groups:
       patches:
         patterns: ['*']
+        exclude-patterns: ['laravel/framework']
         update-types: [minor, patch]
     ignore:
       - dependency-name: '*'
