@@ -384,6 +384,12 @@ package we depend on, `.github/workflows/dependabot-auto-merge.yml` waits for
 the suite and merges it. That closes CVEs **in the code**. Three things sit
 outside CI, and without them the fix never reaches the running server:
 
+0. **Enable it on the `client` repo, not `origin`.** Forge deploys from
+   `Prometeo-Srl/arkistapp-backend`; Dependabot security updates and Actions
+   must be switched on *there* (Settings → Code security). Enabling them on
+   `algomeraIT/prometeo-backend` hardens a repo nothing deploys from. Note the
+   PAT `workflow` scope blocker at the top of this file applies to every change
+   under `.github/` — including this automation itself.
 1. **Forge auto-deploy must be on** for the site (Forge → Site → *Quick Deploy*).
    Otherwise a merged security fix sits in `develop` and production keeps
    serving the vulnerable version. This is the single most important switch on
